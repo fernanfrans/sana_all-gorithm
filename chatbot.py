@@ -3,9 +3,10 @@ import streamlit as st
 from dotenv import load_dotenv
 import google.generativeai as gen_ai
 
-# Load environment variables from .env file
 load_dotenv()
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+# Fallback logic: Cloud first, then local
+GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
 
 # Configure Streamlit page
 st.set_page_config(
