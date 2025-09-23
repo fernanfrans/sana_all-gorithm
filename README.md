@@ -1,8 +1,2 @@
-## PJDSC 2025
-# Radar Reflectivity-Based Nowcasting Framework for Short-Term Rainfall Prediction
-
-### Sana All-gorithm
-Fernan Frans B. Pelobello
-Maxine Van L. Caparas
-Ma. Angelika C. Regoso
-Pamela Anne C. Serrano
+# RAINLOOP Chatbot
+This repository is about building a chatbot using Google's Gemini-Pro with streamlit. Generate Gemini API Key through this: https://aistudio.google.com/u/2/apikey
