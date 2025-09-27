@@ -5,7 +5,7 @@ def render_sidebar():
     with st.sidebar:
         st.markdown("### ⚙️ Controls")
         st.markdown("#### Radar Settings")
-        st.selectbox("Update Interval", ["Real-time", "5 minutes", "15 minutes", "30 minutes"])
+        st.select_slider("Update Interval", ["Real-time", "5 minutes", "10 minutes", "15 minutes", "20 minutes", "25 minutes", "30 minutes"])
         st.checkbox("Show Typhoon Track", value=True)
         st.checkbox("Show Warning Areas", value=True)
 

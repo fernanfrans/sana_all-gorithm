@@ -17,9 +17,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-
-
-# Inject styles + Header
+# Inject styles
 inject_styles()
 
 # Banner
