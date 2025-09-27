@@ -26,11 +26,12 @@ xarray==2024.7.0
 netCDF4==1.7.2
 h5netcdf==1.6.4
 arm_pyart==1.19.2
-<<<<<<< HEAD
-=======
 
 # Other
 supabase
 ijson
 streamlit
->>>>>>> b77181a7dabd46d5f8777a9e099b3d7fdf414d19
+
+# Map visualization
+streamlit-folium
+geopandas
