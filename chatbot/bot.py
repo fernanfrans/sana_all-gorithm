@@ -1,26 +1,42 @@
 import streamlit as st
-from chatbot.session import get_chat_session
-from chatbot.utils import translate_role
+from chatbot.chunking import load_weather_json, chunk_weather_data
+from chatbot.embedding import embed_chunks, embed_query
+from chatbot.retrieval import build_faiss_index, retrieve
+from config.settings import gen_ai, CHAT_MODEL
 
 def run_chatbot():
-    st.markdown("---")
-    # Chatbot title
-    st.markdown("### 🦾🌧️ RAINLOOP Assistant - Ask Me.. 💬")
+    # Load and process data
+    json_data = load_weather_json()
+    chunks = chunk_weather_data(json_data)
+    embeddings = embed_chunks(chunks)
+    index = build_faiss_index(embeddings)
 
-    # Initialize chat session
-    chat_session = get_chat_session()
+    # Gemini chat model (generation only)
+    model = gen_ai.GenerativeModel(model_name=CHAT_MODEL)
 
-    # Display chat history
-    for msg in chat_session.history:
-        with st.chat_message(translate_role(msg.role)):
-            st.markdown(msg.parts[0].text)
+    # Streamlit UI
+    st.title("🦾🌧️ Weather RAG Assistant")
 
-    # Chat input
-    user_input = st.chat_input("Ask RAINLOOP Chatbot...")
-    if user_input:
-        st.chat_message("user", avatar="🧑‍💻").markdown(user_input)
-        response = chat_session.send_message(user_input)
-        with st.chat_message("assistant", avatar="🦾🌧️"):
-            st.markdown(response.text)
+    query = st.text_input("Ask about weather conditions (e.g., 'What's the rain status in Cebu')")
 
-    
+    if query:
+        # Embed query locally
+        query_emb = embed_query(query)
+
+        # Retrieve with FAISS
+        results = retrieve(query, index, embeddings, query_emb)
+
+        if not results:
+            st.warning("⚠️ No relevant weather data found for your query. Try another location or keyword.")
+        else:
+            context = "\n".join([r["text"] for r in results])
+            prompt = f"Using the following weather data:\n{context}\nAnswer this question: {query}"
+
+            try:
+                response = model.generate_content(prompt)
+                answer = response.text if hasattr(response, "text") else "⚠️ No response generated."
+            except Exception as e:
+                answer = f"⚠️ Error generating response: {e}"
+
+            st.markdown("### 💬 Gemini's Answer")
+            st.write(answer)
