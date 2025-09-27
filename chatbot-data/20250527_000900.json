@@ -1,0 +1,25 @@
+{
+  "weather_data": [
+    {
+      "place": "Manila",
+      "latitude": 14.5995,
+      "longitude": 120.9842,
+      "reflectivity": 35.2,
+      "rain_category": "Moderate"
+    },
+    {
+      "place": "Cebu",
+      "latitude": 10.3157,
+      "longitude": 123.8854,
+      "reflectivity": 42.8,
+      "rain_category": "Heavy"
+    },
+    {
+      "place": "Davao",
+      "latitude": 7.1907,
+      "longitude": 125.4553,
+      "reflectivity": 18.5,
+      "rain_category": "Light"
+    }
+  ]
+}
