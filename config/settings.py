@@ -15,4 +15,5 @@ if not GEMINI_API_KEY:
 gen_ai.configure(api_key=GEMINI_API_KEY)
 
 # Model Config
-MODEL_NAME = "gemini-2.5-pro"
+CHAT_MODEL = "gemini-2.5-pro"
+EMBEDDING_MODEL = "models/embedding-001"
