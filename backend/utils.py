@@ -2,7 +2,7 @@ import re
 import numpy as np
 from datetime import datetime
 from scipy.ndimage import uniform_filter
-import cv2
+
 
 # scale data
 def scaler(data):
@@ -35,7 +35,8 @@ def extract_timestamp(key):
         return datetime.strptime(date_str + time_str, '%Y%m%d%H%M')
     else:
         raise None
-    
+
+# find valid sequences of data keys  
 def find_valid_sequences(keys):
     keys_with_timestamps = []
 
@@ -64,3 +65,25 @@ def find_valid_sequences(keys):
             valid_sequences.append([key for key, _ in group])
 
     return valid_sequences
+
+# flatten the valid sequences
+def flatten_sequences(sequences):
+    flat_list = []
+    seen = set()
+    for seq in sequences:
+        for item in seq:
+            if item not in seen:
+                seen.add(item)
+                flat_list.append(item)
+    return flat_list
+
+# getting reflectivity data from the dataset
+def get_reflectivity_data(dataset_dict, flat_list):
+    reflectivity_data = []
+    for key in flat_list:
+        if key in dataset_dict:
+            reflectivity_data.append(dataset_dict[key])
+        else:
+            raise KeyError(f"Key {key} not found in the dataset.")
+    reflectivity_data = np.array(reflectivity_data).squeeze()
+    return reflectivity_data
