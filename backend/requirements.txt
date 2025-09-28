@@ -1,0 +1,7 @@
+h5py
+xarray
+numpy
+tensorflow
+scipy
+netCDF4
+h5netcdf
