@@ -80,8 +80,13 @@ def render_radar():
                 rain = rainfall[i, j]
                 heat_data.append([lat, lon, rain])
 
+        min_lat, max_lat = np.min(lat_grid), np.max(lat_grid)
+        min_lon, max_lon = np.min(lon_grid), np.max(lon_grid)
+        bounds = [[min_lat, min_lon], [max_lat, max_lon]]
+
         map_center = [np.mean(lat_grid), np.mean(lon_grid)]
-        map = folium.Map(location=map_center, zoom_start=6, tiles="Cartodb Positron")
+        map = folium.Map(location=map_center, tiles="Cartodb Positron", max_bounds=True)
+        map.fit_bounds(bounds)
 
         HeatMap(heat_data,
                 min_opacity=0,
