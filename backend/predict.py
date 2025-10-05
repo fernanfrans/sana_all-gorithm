@@ -97,7 +97,7 @@ if __name__ == "__main__":
     # input data
     input_data = "C:\\Users\\Administrator\\DATA SCIENTIST\\sana_all-gorithm\\sana_all-gorithm\\backend\\grid_data"
     model_path = "C:\\Users\\Administrator\\DATA SCIENTIST\\sana_all-gorithm\\sana_all-gorithm\\backend\\rainnet_FINAL4.weights.h5"
-    output_folder = "C:\\Users\\Administrator\\DATA SCIENTIST\\sana_all-gorithm\\sana_all-gorithm\\predicted_json"
+    output_folder = "C:\\Users\\Administrator\\DATA SCIENTIST\\sana_all-gorithm\\sana_all-gorithm\\backend\\predicted_json"
     metadata_path = "C:\\Users\\Administrator\\DATA SCIENTIST\\sana_all-gorithm\\sana_all-gorithm\\backend\\KCYS_metadata.json"
     predictions_2hours = predicted_data(input_data, model_path)
     pred_to_json(predictions_2hours, metadata_path, output_folder)
