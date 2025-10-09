@@ -11,9 +11,8 @@ torch>=2.0.0
 # for predicting
 h5py==3.14.0
 xarray==2024.7.0
-numpy==2.0.2
 tensorflow==2.20.0
 scipy==1.13.1
 netCDF4==1.7.2
 h5netcdf==1.6.4
-
+arm_pyart==1.19.2
