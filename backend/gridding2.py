@@ -31,20 +31,7 @@ def grid_radar_data(radar, size):
     # pyart.io.write_grid(output_file, grids)
     # print(f"✅ Gridded data saved to {output_file}")
 
-    return img_mtx
+    return grids
 
-def process_radar_files(radar, filename, size):
-    """Process multiple radar scans and grid each one."""
-    try:
-        radar_grid = grid_radar_data(radar, size)
-        print(f"  ✓ Gridded to shape {radar_grid.shape}")
-        return {
-            'filename': filename,
-            'grid': radar_grid
-        }
-
-    except Exception as e:
-        print(f"⚠️ Error processing {radar}: {e}")
-        return None
 
     

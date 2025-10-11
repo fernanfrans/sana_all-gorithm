@@ -5,6 +5,7 @@ import pytz
 import tempfile
 import os
 from supabase import create_client, Client
+from gridding2 import grid_radar_data
 
 # Consider using environment variables for credentials
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://xkktvmitzztjlhfyquab.supabase.co")
