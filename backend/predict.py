@@ -6,6 +6,15 @@ from nc2h5 import convert_nc_to_h5
 import h5py
 import tensorflow as tf
 import json
+from supabase import create_client, Client
+import io
+
+
+# Consider using environment variables for credentials
+SUPABASE_URL = os.getenv("SUPABASE_URL", "https://xkktvmitzztjlhfyquab.supabase.co")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhra3R2bWl0enp0amxoZnlxdWFiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1OTgxODQxOCwiZXhwIjoyMDc1Mzk0NDE4fQ.H-jARxu1GjGQrmpmV3OrbogJzD7tQNNRHMg15lX6FGU")
+BUCKET_NAME = "radar-data-json"
+supabase_client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
 def predict(model, input_data):
@@ -88,14 +97,48 @@ def pred_to_json(predictions, metadata_path, output_folder):
             "reflectivity": predicted_refl[t].tolist()
         }
 
-        output_file = os.path.join(output_folder, f'prediction_{lead_times[t]}.json')
-        with open(output_file, 'w') as outfile:
-            json.dump(prediction_dict, outfile)
-            print(f"Saved prediction to {output_file}")
+        # Convert JSON dict to bytes
+        json_bytes = json.dumps(prediction_dict).encode('utf-8')
+
+        # Upload bytes directly to Supabase
+        res = supabase_client.storage.from_(BUCKET_NAME).upload(
+            f'tryprediction_{lead_times[t]}.json',
+            json_bytes,
+            file_options={"content-type": "application/json"}
+        )
+
+        if hasattr(res, 'error') and res.error:
+            print(f"❌ Upload failed for prediction_{lead_times[t]}.json: {res.error}")
+        else:
+            print(f"✅ Uploaded to Supabase: prediction_{lead_times[t]}.json")
+
+def get_data_from_supabase():
+    """
+    Download NetCDF files from Supabase bucket.
+    """
+    try:
+        files = supabase_client.storage.from_(BUCKET_NAME).list()
+        if not files:
+            raise ValueError("No files found in the specified Supabase bucket.")
+        
+        sorted_files = sorted([f['name'] for f in files])
+        local_files = []
+        for f_name in sorted_files:
+            data = supabase_client.storage.from_(BUCKET_NAME).download(f_name)
+            local_path = os.path.join("downloaded_nc_files", f_name)
+            os.makedirs(os.path.dirname(local_path), exist_ok=True)
+            with open(local_path, "wb") as f:
+                f.write(data)
+            local_files.append(local_path)
+        return local_files
+    except Exception as e:
+        print(f"Error downloading files from Supabase: {e}")
+        return None
+
 
 if __name__ == "__main__":
     # input data
-    input_data = "C:\\Users\\Administrator\\DATA SCIENTIST\\sana_all-gorithm\\sana_all-gorithm\\backend\\grid_data"
+    input_data = get_data_from_supabase()
     model_path = "C:\\Users\\Administrator\\DATA SCIENTIST\\sana_all-gorithm\\sana_all-gorithm\\backend\\rainnet_FINAL4.weights.h5"
     output_folder = "C:\\Users\\Administrator\\DATA SCIENTIST\\sana_all-gorithm\\sana_all-gorithm\\backend\\predicted_json"
     metadata_path = "C:\\Users\\Administrator\\DATA SCIENTIST\\sana_all-gorithm\\sana_all-gorithm\\backend\\KCYS_metadata.json"

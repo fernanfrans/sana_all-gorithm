@@ -61,7 +61,7 @@ def find_valid_sequences(keys):
             minutes = seconds / 60
             intervals.append(minutes)
         
-        if all(4 <= dt <= 7 for dt in intervals):
+        if all(9 <= dt <= 12 for dt in intervals):
             valid_sequences.append([key for key, _ in group])
 
     return valid_sequences
