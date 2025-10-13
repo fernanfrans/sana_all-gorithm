@@ -8,14 +8,31 @@ import tensorflow as tf
 import json
 from supabase import create_client, Client
 import io
+from dotenv import load_dotenv
+from get_data import get_radar_data
 
 
-# Consider using environment variables for credentials
-SUPABASE_URL = os.getenv("SUPABASE_URL", "https://xkktvmitzztjlhfyquab.supabase.co")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhra3R2bWl0enp0amxoZnlxdWFiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1OTgxODQxOCwiZXhwIjoyMDc1Mzk0NDE4fQ.H-jARxu1GjGQrmpmV3OrbogJzD7tQNNRHMg15lX6FGU")
-BUCKET_NAME = "radar-data-json"
-supabase_client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# ----------------------------
+# Environment & Supabase Setup
+# ----------------------------
+def init_supabase():
+    dotenv_path = os.path.join(os.path.dirname(__file__), '../config/.env.example')
+    load_dotenv(dotenv_path)
+    SUPABASE_URL = os.getenv("SUPABASE_URL")
+    SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+    BUCKET_NAME_PREDICTED = os.getenv("BUCKET_PREDICTED")
+    BUCKET_NAME_NC = os.getenv("BUCKET_NC")
+    client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    return client, BUCKET_NAME_PREDICTED, BUCKET_NAME_NC
 
+def clear_bucket(supabase_client: Client, bucket_name: str):
+    files = supabase_client.storage.from_(bucket_name).list()
+    if files:
+        file_names = [f["name"] for f in files]
+        supabase_client.storage.from_(bucket_name).remove(file_names)
+        print(f"Removed {len(file_names)} files from Supabase bucket.")
+    else:
+        print("No files found in Supabase bucket.")
 
 def predict(model, input_data):
     """
@@ -66,7 +83,7 @@ def load_model(model_path):
     model.load_weights(model_path)
     return model
 
-def pred_to_json(predictions, metadata_path, output_folder):
+def pred_to_json(predictions, metadata_path, supabase_client, BUCKET_NAME):
     """
     Convert predictions to JSON format.
     """
@@ -112,7 +129,7 @@ def pred_to_json(predictions, metadata_path, output_folder):
         else:
             print(f"✅ Uploaded to Supabase: prediction_{lead_times[t]}.json")
 
-def get_data_from_supabase():
+def get_data_from_supabase(supabase_client, BUCKET_NAME):
     """
     Download NetCDF files from Supabase bucket.
     """
@@ -135,13 +152,23 @@ def get_data_from_supabase():
         print(f"Error downloading files from Supabase: {e}")
         return None
 
+def main():
+    # Define paths and initialize Supabase
+    metadata_path = "C:\\Users\\Administrator\\DATA SCIENTIST\\sana_all-gorithm\\sana_all-gorithm\\backend\\KCYS_metadata.json"
+    model_path = "C:\\Users\\Administrator\\DATA SCIENTIST\\sana_all-gorithm\\sana_all-gorithm\\backend\\rainnet_FINAL4.weights.h5"
+    supabase_client, bucket_predicted, bucket_nc = init_supabase()
+    # Clear existing files in Supabase buckets
+    clear_bucket(supabase_client, bucket_predicted)
+    clear_bucket(supabase_client, bucket_nc)
+    # Get radar data, make predictions, and upload results
+    get_radar_data(supabase_client, bucket_nc)
+    input_data = get_data_from_supabase(supabase_client, bucket_nc)
+    predictions_2hours = predicted_data(input_data, model_path)
+    pred_to_json(predictions_2hours, metadata_path, supabase_client, bucket_predicted)
+    
+
 
 if __name__ == "__main__":
-    # input data
-    input_data = get_data_from_supabase()
-    model_path = "C:\\Users\\Administrator\\DATA SCIENTIST\\sana_all-gorithm\\sana_all-gorithm\\backend\\rainnet_FINAL4.weights.h5"
-    output_folder = "C:\\Users\\Administrator\\DATA SCIENTIST\\sana_all-gorithm\\sana_all-gorithm\\backend\\predicted_json"
-    metadata_path = "C:\\Users\\Administrator\\DATA SCIENTIST\\sana_all-gorithm\\sana_all-gorithm\\backend\\KCYS_metadata.json"
-    predictions_2hours = predicted_data(input_data, model_path)
-    pred_to_json(predictions_2hours, metadata_path, output_folder)
+    main()
     print("Prediction process completed.")
+    

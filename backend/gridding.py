@@ -27,10 +27,6 @@ def grid_radar_data(radar, size):
 
     grids.fields['reflectivity']['data'][0, :, :] = img_mtx
 
-    # # Save the gridded data
-    # pyart.io.write_grid(output_file, grids)
-    # print(f"✅ Gridded data saved to {output_file}")
-
     return grids
 
 
