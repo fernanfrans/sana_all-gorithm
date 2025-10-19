@@ -4,7 +4,7 @@ from datetime import datetime
 from backend.radar_data import generate_radar_data
 
 def render_radar():
-    st.markdown("### 🎯 Weather Radar - Real-time Precipitation")
+    st.markdown("### Weather Radar - Real-time Precipitation")
     lat_grid, lon_grid, rainfall = generate_radar_data()
 
     fig = go.Figure()
