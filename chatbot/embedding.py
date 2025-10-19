@@ -1,7 +1,11 @@
+import os
+os.environ["TRANSFORMERS_NO_TF"] = "1"  # 👈 Add these lines FIRST
+
 from typing import Dict, Generator, List, Tuple
 import numpy as np
 from sentence_transformers import SentenceTransformer
 import faiss
+
 
 # Load once
 LOCAL_MODEL = SentenceTransformer("all-MiniLM-L6-v2")
