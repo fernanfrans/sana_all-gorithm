@@ -24,7 +24,7 @@ def run_chatbot():
     st.markdown("---")
     col1, col2, col3 = st.columns([13, 1, 1], gap="small")  
     with col1:
-        st.markdown("### 🦾🌧️ RainLoop AI Assistant - Ask me...💬")
+        st.markdown("### 🌧️ RainLoop AI Assistant - Ask me...💬")
     with col2:
         if st.button("↻ Restart"):
             st.session_state["messages"] = []

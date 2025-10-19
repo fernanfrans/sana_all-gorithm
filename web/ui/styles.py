@@ -3,6 +3,30 @@ import streamlit as st
 def inject_styles():
     st.markdown("""
     <style>
+        /* Force white background for entire app */
+        html, body, [class*="stAppViewContainer"], .stApp {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+        }
+
+        /* Sidebar stays white too */
+        section[data-testid="stSidebar"] {
+            background-color: #ffffff !important;
+        }
+
+        /* Make sure the app starts at the top */
+        html, body {
+            scroll-behavior: smooth;
+            overflow-y: auto !important;
+        }
+        .stApp {
+            scroll-behavior: smooth;
+        }
+        /* Scroll to top on load */
+        html {
+            scroll-behavior: smooth;
+        }
+
         /* General App Layout */
         .main > div {
             padding-top: 1rem;
@@ -121,4 +145,13 @@ def inject_styles():
             font-weight: 600;
         }
     </style>
+    """, unsafe_allow_html=True)
+
+    # JavaScript snippet to force scroll to top on reload
+    st.markdown("""
+    <script>
+        window.addEventListener('load', () => {
+            window.scrollTo(0, 0);
+        });
+    </script>
     """, unsafe_allow_html=True)
