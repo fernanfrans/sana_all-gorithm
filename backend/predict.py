@@ -1,5 +1,3 @@
-from model import rainnet
-from utils import normalize, denormalize, find_valid_sequences, flatten_sequences, get_reflectivity_data
 import os
 import numpy as np
 from nc2h5 import convert_nc_to_h5
@@ -7,9 +5,19 @@ import h5py
 import tensorflow as tf
 import json
 from supabase import create_client, Client
-import io
 from dotenv import load_dotenv
 from get_data import get_radar_data
+import math
+from datetime import datetime, timedelta
+
+from model import rainnet
+from utils import (
+    normalize,
+    denormalize,
+    find_valid_sequences,
+    flatten_sequences,
+    get_reflectivity_data,
+)
 
 
 # ----------------------------
@@ -71,11 +79,13 @@ def dataset(input_data):
 def predicted_data(input_data, model_path):
     """
     Get the predicted reflectivity data for the next 120 mins.
+    Returns (predictions, completion_datetime_truncated_to_minute).
     """
     process_data = dataset(input_data)
     model = load_model(model_path)
     predictions_2hours = predict(model, process_data[:4])
-    return predictions_2hours
+    completion_dt = datetime.now().replace(second=0, microsecond=0)
+    return predictions_2hours, completion_dt
 
 def load_model(model_path):
     model = rainnet()
@@ -83,9 +93,16 @@ def load_model(model_path):
     model.load_weights(model_path)
     return model
 
-def pred_to_json(predictions, metadata_path, supabase_client, BUCKET_NAME):
+def pred_to_json(
+    predictions,
+    metadata_path,
+    supabase_client,
+    BUCKET_NAME,
+    base_time: datetime,
+):
     """
-    Convert predictions to JSON format.
+    Convert predictions to JSON format suitable for raw storage.
+    Filenames follow RAW_YYYYMMDD_HHMMSS based on base_time + lead minutes.
     """
     # load metadata
     with open(metadata_path, 'r') as f:
@@ -95,8 +112,11 @@ def pred_to_json(predictions, metadata_path, supabase_client, BUCKET_NAME):
     predicted_refl = np.array(predictions)
     T = predicted_refl.shape[0]
 
-    lead_times = [f'+{5*i}min' for i in range(1, 25)]
     for t in range(T):
+        lead_minutes = 5 * (t + 1)
+        timestep_dt = base_time + timedelta(minutes=lead_minutes)
+        ts_str = timestep_dt.strftime("%Y%m%d_%H%M%S")
+        lead_label = f"+{lead_minutes}min"
         prediction_dict = {
             "metadata": {
                 "variable": "reflectivity_predicted",
@@ -105,7 +125,8 @@ def pred_to_json(predictions, metadata_path, supabase_client, BUCKET_NAME):
                 "origin_longitude": metadata["metadata"]["origin_longitude"],
                 "projection": metadata["metadata"]["projection"],
                 "shape": predicted_refl[t].shape,
-                "lead_time": lead_times[t]
+                "lead_time": lead_label,
+                "valid_datetime": timestep_dt.isoformat()
             },
             "coordinates": {
                 "lat": metadata["coordinates"]["lat"],
@@ -119,15 +140,115 @@ def pred_to_json(predictions, metadata_path, supabase_client, BUCKET_NAME):
 
         # Upload bytes directly to Supabase
         res = supabase_client.storage.from_(BUCKET_NAME).upload(
-            f'tryprediction_{lead_times[t]}.json',
+            f'RAW_{ts_str}.json',
             json_bytes,
             file_options={"content-type": "application/json"}
         )
 
         if hasattr(res, 'error') and res.error:
-            print(f"❌ Upload failed for prediction_{lead_times[t]}.json: {res.error}")
+            print(f"❌ Upload failed for RAW_{ts_str}.json: {res.error}")
         else:
-            print(f"✅ Uploaded to Supabase: prediction_{lead_times[t]}.json")
+            print(f"✅ Uploaded to Supabase: RAW_{ts_str}.json")
+
+def _rain_category(dbz: float) -> str:
+    """
+    Categorize reflectivity (dBZ) using your table:
+      0 to 20   -> Very light
+      20 to 40  -> Light
+      40 to 50  -> Moderate
+      50 to 65  -> Heavy
+      >65    -> Extremely heavy
+    """
+    if dbz is None or (isinstance(dbz, float) and math.isnan(dbz)):
+        return "Unknown"
+    if dbz > 65:
+        return "Extremely heavy"
+    if dbz >= 50:
+        return "Heavy"
+    if dbz >= 40:
+        return "Moderate"
+    if dbz >= 20:
+        return "Light"
+    return "Very light"
+
+def pred_to_chatbot_data(
+    predictions,
+    locations_path,
+    supabase_client,
+    BUCKET_NAME,
+    base_time: datetime,
+):
+    """
+    Convert predictions to per-location chatbot JSON files.
+    Filenames follow CHATBOT_YYYYMMDD_HHMMSS using base_time + lead minutes.
+    """
+    # load metadata
+    with open(locations_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+        locations = data.get("locations", [])
+
+    if not locations:
+        raise ValueError("Locations list is empty; unable to map predictions to places.")
+
+    predicted_refl = np.asarray(predictions).squeeze()
+    if predicted_refl.ndim == 2:
+        # Single timestep - add leading axis for consistency
+        predicted_refl = predicted_refl[np.newaxis, ...]
+    if predicted_refl.ndim < 2:
+        raise ValueError(f"Unexpected prediction shape: {predicted_refl.shape}")
+
+    T = predicted_refl.shape[0]
+
+    expected_points = len(locations)
+
+    for t in range(T):
+        lead_minutes = 5 * (t + 1)
+        timestep_dt = base_time + timedelta(minutes=lead_minutes)
+        ts_str = timestep_dt.strftime("%Y%m%d_%H%M%S")
+        lead_label = f"+{lead_minutes}min"
+
+        refl_slice = np.asarray(predicted_refl[t])
+        refl_flat = refl_slice.reshape(-1)
+
+        if refl_flat.size != expected_points:
+            print(
+                f"⚠️ Prediction timestep {t} has {refl_flat.size} grid points, "
+                f"but {expected_points} locations are defined. Truncating to the shorter length."
+            )
+
+        weather_json = []
+        for loc, refl_val in zip(locations, refl_flat):
+            try:
+                refl = round(float(np.asarray(refl_val).item()), 2)
+            except (ValueError, TypeError):
+                refl = float("nan")
+            weather_json.append(
+                {
+                    "place": loc["place"],
+                    "latitude": float(loc["latitude"]),
+                    "longitude": float(loc["longitude"]),
+                    "reflectivity": refl,
+                    "rain_category": _rain_category(refl),
+                }
+            )
+
+        payload = {
+            "weather_data": weather_json,
+        }
+        json_bytes = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
+
+        # Upload bytes directly to Supabase
+        res = supabase_client.storage.from_(BUCKET_NAME).upload(
+            f"CHATBOT_{ts_str}.json",
+            json_bytes,
+            file_options={"content-type": "application/json"},
+        )
+
+        if hasattr(res, "error") and res.error:
+            print(f"❌ Upload failed for CHATBOT_{ts_str}.json: {res.error}")
+        else:
+            print(f"✅ Uploaded to Supabase: CHATBOT_{ts_str}.json")
+
 
 def get_data_from_supabase(supabase_client, BUCKET_NAME):
     """
@@ -154,8 +275,9 @@ def get_data_from_supabase(supabase_client, BUCKET_NAME):
 
 def main():
     # Define paths and initialize Supabase
-    metadata_path = "C:\\Users\\Administrator\\DATA SCIENTIST\\sana_all-gorithm\\sana_all-gorithm\\backend\\KCYS_metadata.json"
-    model_path = "C:\\Users\\Administrator\\DATA SCIENTIST\\sana_all-gorithm\\sana_all-gorithm\\backend\\rainnet_FINAL4.weights.h5"
+    metadata_path = "/Users/ma.angelikac.regoso/Desktop/PJDSCCHAMPION2025V2/sana_all-gorithm/backend/KCYS_metadata.json"
+    model_path = "/Users/ma.angelikac.regoso/Desktop/PJDSCCHAMPION2025V2/sana_all-gorithm/backend/rainnet_FINAL4.weights.h5"
+    locations_path = "/Users/ma.angelikac.regoso/Desktop/PJDSCCHAMPION2025V2/sana_all-gorithm/backend/locations.json"
     supabase_client, bucket_predicted, bucket_nc = init_supabase()
     # Clear existing files in Supabase buckets
     clear_bucket(supabase_client, bucket_predicted)
@@ -163,10 +285,22 @@ def main():
     # Get radar data, make predictions, and upload results
     get_radar_data(supabase_client, bucket_nc)
     input_data = get_data_from_supabase(supabase_client, bucket_nc)
-    predictions_2hours = predicted_data(input_data, model_path)
-    pred_to_json(predictions_2hours, metadata_path, supabase_client, bucket_predicted)
+    predictions_2hours, base_time = predicted_data(input_data, model_path)
+    pred_to_json(
+        predictions_2hours,
+        metadata_path,
+        supabase_client,
+        bucket_predicted,
+        base_time,
+    )
+    pred_to_chatbot_data(
+        predictions_2hours,
+        locations_path,
+        supabase_client,
+        bucket_predicted,
+        base_time,
+    )
     
-
 
 if __name__ == "__main__":
     main()

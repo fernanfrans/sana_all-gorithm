@@ -6,7 +6,8 @@ from typing import List, Optional
 
 from chatbot.supabase_ops import list_files
 
-FILENAME_RE = re.compile(r"^(?:weather_data_)?(\d{8})_(\d{6})\.json$")
+
+FILENAME_RE = re.compile(r"^(?:(?:weather_data|CHATBOT)_)?(\d{8})_(\d{6})\.json$")
 MANILA_TZ = timezone(timedelta(hours=8))
 
 @dataclass(frozen=True)

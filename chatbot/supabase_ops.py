@@ -3,7 +3,7 @@ import datetime as dt
 from typing import Any, Dict, List
 from chatbot.supabase_client import get_client
 
-BUCKET = "weather-data"
+BUCKET = "radar-predicted"
 
 def upload_json(path_in_bucket: str, payload: Dict[str, Any]) -> str:
     sb = get_client()
