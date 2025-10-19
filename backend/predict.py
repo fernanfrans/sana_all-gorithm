@@ -155,7 +155,7 @@ def get_data_from_supabase(supabase_client, BUCKET_NAME):
 def main():
     # Define paths and initialize Supabase
     metadata_path = "C:\\Users\\Administrator\\DATA SCIENTIST\\sana_all-gorithm\\sana_all-gorithm\\backend\\KCYS_metadata.json"
-    model_path = "C:\\Users\\Administrator\\DATA SCIENTIST\\sana_all-gorithm\\sana_all-gorithm\\backend\\rainnet_FINAL4.weights.h5"
+    model_path = os.path.join("backend", "rainnet_FINAL4.weights.h5")
     supabase_client, bucket_predicted, bucket_nc = init_supabase()
     # Clear existing files in Supabase buckets
     clear_bucket(supabase_client, bucket_predicted)
