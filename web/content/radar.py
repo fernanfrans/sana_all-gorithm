@@ -1,95 +1,102 @@
 import numpy as np
 import streamlit as st
 import folium
-import plotly.graph_objects as go
-from datetime import datetime
+import time
 from streamlit_folium import st_folium
 from backend.radar_data import generate_radar_data
 from folium.plugins import HeatMap
+from folium import FeatureGroup, Marker
 
 def render_radar():
     st.markdown("### 🎯 Weather Radar - Real-time Precipitation")
-    lat_grid, lon_grid, rainfall = generate_radar_data()
 
-    tab1, tab2 = st.tabs(["Rainfall Heatmap", "World Map with Rainfall Heatmap"])
+    # Heatmap gradient based on reflectivity value
+    GRADIENT = {
+        0.00: 'rgba(0,0,0,0)',     # transparent (no rain)
+        0.05: '#001040',           # very light drizzle – dark navy
+        0.10: '#0020A0',           # light rain – blue
+        0.20: '#0040FF',           # light-moderate rain – bright blue
+        0.30: '#00A0FF',           # moderate rain – cyan
+        0.40: '#00FFC0',           # moderate-heavy rain – aqua green
+        0.50: '#00FF00',           # heavy rain – green
+        0.60: '#A0FF00',           # very heavy rain – lime
+        0.70: '#FFFF00',           # intense rain – yellow
+        0.80: '#FFA000',           # extreme rain – orange
+        0.90: '#FF4000',           # torrential – red-orange
+        1.00: '#FF0000'            # max reflectivity – bright red
+    }
 
-    # Rainfall Heatmap
-    with tab1:
-        fig = go.Figure()
-        fig.add_trace(go.Heatmap(
-            z=rainfall,
-            x=lon_grid[0],
-            y=lat_grid[:, 0],
-            colorscale=[
-                [0, 'rgba(0,0,0,0)'],
-                [0.1, '#000080'],
-                [0.3, '#0080FF'],
-                [0.5, '#00FF00'],
-                [0.7, '#FFFF00'],
-                [0.8, '#FF8000'],
-                [1.0, '#FF0000']
-            ],
-            hovertemplate='Lat: %{y:.2f}<br>Lon: %{x:.2f}<br>Rainfall: %{z:.1f} mm/hr<extra></extra>',
-            name='Rainfall Intensity'
-        ))
+    # Set up initial values for helper variables
+    map_container = st.container()
+    frames = list(range(5, 120, 5))
 
-        # Typhoon Center
-        fig.add_trace(go.Scatter(
-            x=[121.0], y=[14.5],
-            mode='markers+text',
-            marker=dict(size=20, color='white', symbol='circle', line=dict(color='red', width=3)),
-            text=['🌀 NANDO'], textposition="top center",
-            textfont=dict(size=14, color='white'),
-            name='Typhoon Center'
-        ))
+    # Set up initial values for cached variables
+    if "frame_idx" not in st.session_state:
+        st.session_state.frame_idx = 0
 
-        # Graph Markers
-        fig.update_layout(
-            title=dict(
-                text="Doppler Radar - Super Typhoon NANDO<br><sub>Updated: " + datetime.now().strftime("%Y-%m-%d %H:%M UTC") + "</sub>",
-                x=0.5, font=dict(color='white', size=16)
-            ),
-            xaxis=dict(title="Longitude", color='white', gridcolor='gray'),
-            yaxis=dict(title="Latitude", color='white', gridcolor='gray'),
-            plot_bgcolor='black', paper_bgcolor='black', font=dict(color='white'),
-            height=500, showlegend=False
-        )
+    if "map_center" not in st.session_state or "map_bounds" not in st.session_state:
+        # Get initial latitude and longitude grids
+        lat_grid_0, lon_grid_0, _ = generate_radar_data(f"prediction_+{frames[0]}min.json")
 
-        st.markdown('<div class="radar-container">', unsafe_allow_html=True)
-        st.plotly_chart(fig, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        # Set map center
+        st.session_state.map_center = [np.mean(lat_grid_0), np.mean(lon_grid_0)]
 
-    # World Map with Rainfall Heatmap
-    with tab2:
-        GRADIENT = {
-            0: 'rgba(0,0,0,0)',
-            0.1: '#000080',
-            0.3: '#0080FF',
-            0.5: '#00FF00',
-            0.7: '#FFFF00',
-            0.8: '#FF8000',
-            1: '#FF0000'
-        }
+        # Also set map bounds
+        min_lat, max_lat = np.min(lat_grid_0), np.max(lat_grid_0)
+        min_lon, max_lon = np.min(lon_grid_0), np.max(lon_grid_0)
+        st.session_state.map_bounds = [[min_lat, min_lon], [max_lat, max_lon]]
 
-        # Heatmap data points [latitude, longitude, rainfall intensity]
-        heat_data = []
-        for i in range(lat_grid.shape[0]):
-            for j in range(lon_grid.shape[1]):
-                lat = lat_grid[i, j]
-                lon = lon_grid[i, j]
-                rain = rainfall[i, j]
-                heat_data.append([lat, lon, rain])
+    # Build Folium map with fixed center and bounds
+    map = folium.Map(location=st.session_state.map_center, tiles="Cartodb Positron", max_bounds=True)
+    map.fit_bounds(st.session_state.map_bounds)
 
-        min_lat, max_lat = np.min(lat_grid), np.max(lat_grid)
-        min_lon, max_lon = np.min(lon_grid), np.max(lon_grid)
-        bounds = [[min_lat, min_lon], [max_lat, max_lon]]
+    # Initialize FeatureGroup
+    featureGroup = FeatureGroup(name="rainfall_heatmap")
 
-        map_center = [np.mean(lat_grid), np.mean(lon_grid)]
-        map = folium.Map(location=map_center, tiles="Cartodb Positron", max_bounds=True)
-        map.fit_bounds(bounds)
+    # Initialize frame data
+    n = frames[st.session_state.frame_idx]
 
-        HeatMap(heat_data,
-                min_opacity=0,
-                gradient=GRADIENT).add_to(map)
+    # for n in frames:
+    lat_grid_frame, lon_grid_frame, rainfall_frame = generate_radar_data(f"prediction_+{n}min.json")
 
-        st_map = st_folium(map, width=800, height=500)
+    # Build HeatMap
+    heat_data = []
+    for i in range(lat_grid_frame.shape[0]):
+        for j in range(lon_grid_frame.shape[1]):
+            lat = lat_grid_frame[i, j]
+            lon = lon_grid_frame[i, j]
+            rain = rainfall_frame[i, j]
+            heat_data.append([lat, lon, rain])
+    
+    HeatMap(heat_data,
+            min_opacity=0,
+            gradient=GRADIENT).add_to(featureGroup)
+
+    if "marker_location" in st.session_state:
+        Marker(location=st.session_state.marker_location,
+                draggable=True).add_to(featureGroup)
+
+    # Display Folium map
+    with map_container.container():
+        map_display = st_folium(map,
+                                width=800,
+                                height=500,
+                                feature_group_to_add=featureGroup,
+                                key="animated_heatmap")
+
+        # Update marker position immediately after each click
+        if map_display.get("last_clicked"):
+            lat, lng = map_display["last_clicked"]["lat"], map_display["last_clicked"]["lng"]
+            st.session_state.marker_location = [lat, lng]
+
+        # Map descriptions
+        st.markdown(f"**🕒 Forecast Interval:** +{n} minutes")
+        if "marker_location" in st.session_state:
+            st.markdown(f"**📍 Marker Coordinates:** {st.session_state.marker_location}")
+
+    # Move to next rainfall heatmap frame
+    st.session_state.frame_idx = (st.session_state.frame_idx + 1) % len(frames)
+
+    # Rerun after a short delay
+    time.sleep(0.1)
+    st.rerun()
