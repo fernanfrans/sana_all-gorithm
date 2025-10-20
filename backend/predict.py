@@ -225,8 +225,6 @@ def pred_to_chatbot_data(
             weather_json.append(
                 {
                     "place": loc["place"],
-                    "latitude": float(loc["latitude"]),
-                    "longitude": float(loc["longitude"]),
                     "reflectivity": refl,
                     "rain_category": _rain_category(refl),
                 }
