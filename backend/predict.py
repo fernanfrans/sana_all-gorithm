@@ -501,9 +501,9 @@ def get_data_from_supabase(supabase_client, BUCKET_NAME):
 
 def main():
     # Define paths and initialize Supabase
-    metadata_path = "/Users/ma.angelikac.regoso/Desktop/PJDSCCHAMPION2025V2/sana_all-gorithm/backend/KCYS_metadata.json"
-    model_path = "/Users/ma.angelikac.regoso/Desktop/PJDSCCHAMPION2025V2/sana_all-gorithm/backend/rainnet_FINAL4.weights.h5"
-    locations_path = "/Users/ma.angelikac.regoso/Desktop/PJDSCCHAMPION2025V2/sana_all-gorithm/backend/locations.json"
+    metadata_path = os.path.join(os.path.dirname(__file__), 'KCYS_metadata.json')
+    model_path = os.path.join(os.path.dirname(__file__), 'rainnet_FINAL4.weights.h5')
+    locations_path = os.path.join(os.path.dirname(__file__), 'locations.json')
     supabase_client, bucket_predicted, bucket_nc = init_supabase()
      # Clear existing files in Supabase buckets
     clear_bucket(supabase_client, bucket_predicted)
