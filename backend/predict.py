@@ -1,15 +1,15 @@
-from model import rainnet
-from utils import normalize, denormalize, find_valid_sequences, flatten_sequences, get_reflectivity_data
+from backend.model import rainnet
+from backend.utils import normalize, denormalize, find_valid_sequences, flatten_sequences, get_reflectivity_data
 import os
 import numpy as np
-from nc2h5 import convert_nc_to_h5
+from backend.nc2h5 import convert_nc_to_h5
 import h5py
 import tensorflow as tf
 import json
 from supabase import create_client, Client
 import io
 from dotenv import load_dotenv
-from get_data import get_radar_data
+from backend.get_data import get_radar_data
 
 
 # ----------------------------
@@ -22,8 +22,9 @@ def init_supabase():
     SUPABASE_KEY = os.getenv("SUPABASE_KEY")
     BUCKET_NAME_PREDICTED = os.getenv("BUCKET_PREDICTED")
     BUCKET_NAME_NC = os.getenv("BUCKET_NC")
+    BUCKET_NAME_METADATA = os.getenv("BUCKET_METADATA")
     client = create_client(SUPABASE_URL, SUPABASE_KEY)
-    return client, BUCKET_NAME_PREDICTED, BUCKET_NAME_NC
+    return client, BUCKET_NAME_PREDICTED, BUCKET_NAME_NC, BUCKET_NAME_METADATA
 
 def clear_bucket(supabase_client: Client, bucket_name: str):
     files = supabase_client.storage.from_(bucket_name).list()
@@ -83,14 +84,11 @@ def load_model(model_path):
     model.load_weights(model_path)
     return model
 
-def pred_to_json(predictions, metadata_path, supabase_client, BUCKET_NAME):
+def pred_to_json(predictions, metadata, supabase_client, BUCKET_NAME):
     """
     Convert predictions to JSON format.
     """
-    # load metadata
-    with open(metadata_path, 'r') as f:
-        metadata = json.load(f)
-
+    
     print(metadata.keys())
     predicted_refl = np.array(predictions)
     T = predicted_refl.shape[0]
@@ -152,23 +150,46 @@ def get_data_from_supabase(supabase_client, BUCKET_NAME):
         print(f"Error downloading files from Supabase: {e}")
         return None
 
-def main():
+def get_metdata_from_supabase(supabase_client, BUCKET_NAME, metadata_filename):
+    """
+    Download metadata JSON file from Supabase bucket.
+    """
+    try:
+        data = supabase_client.storage.from_(BUCKET_NAME).download(metadata_filename)
+        metadata = json.loads(data.decode('utf-8'))
+        return metadata
+    except Exception as e:
+        print(f"Error downloading metadata from Supabase: {e}")
+        return None
+
+def predict_main():
     # Define paths and initialize Supabase
-    metadata_path = "C:\\Users\\Administrator\\DATA SCIENTIST\\sana_all-gorithm\\sana_all-gorithm\\backend\\KCYS_metadata.json"
-    model_path = os.path.join("backend", "rainnet_FINAL4.weights.h5")
-    supabase_client, bucket_predicted, bucket_nc = init_supabase()
+    supabase_client, bucket_predicted, bucket_nc, bucket_metadata = init_supabase()
+    # Get the absolute path to the current file (backend/predict.py)
+    CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+    
+    # Go up one level to reach project root (the one containing backend/)
+    PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
+
+    # Build the full model path (✅ works locally & on Streamlit Cloud)
+    model_path = os.path.join(PROJECT_ROOT, "backend", "rainnet_FINAL4.weights.h5")
+    print(model_path)
+
+    metadata = get_metdata_from_supabase(supabase_client, bucket_metadata, "KCYS_metadata.json")
     # Clear existing files in Supabase buckets
     clear_bucket(supabase_client, bucket_predicted)
     clear_bucket(supabase_client, bucket_nc)
     # Get radar data, make predictions, and upload results
+    print("Starting radar data retrieval...")
     get_radar_data(supabase_client, bucket_nc)
+    print("Radar data retrieval completed.")
     input_data = get_data_from_supabase(supabase_client, bucket_nc)
     predictions_2hours = predicted_data(input_data, model_path)
-    pred_to_json(predictions_2hours, metadata_path, supabase_client, bucket_predicted)
+    pred_to_json(predictions_2hours, metadata, supabase_client, bucket_predicted)
     
 
 
 if __name__ == "__main__":
-    main()
+    predict_main()
     print("Prediction process completed.")
     
