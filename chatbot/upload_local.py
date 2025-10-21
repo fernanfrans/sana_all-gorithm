@@ -4,7 +4,7 @@ import mimetypes
 from pathlib import Path
 from chatbot.supabase_client import get_client
 
-BUCKET = "weather-data"
+BUCKET = "radar-predicted"
 
 def guess_content_type(path: Path) -> str:
     ctype, _ = mimetypes.guess_type(str(path))
@@ -47,7 +47,10 @@ def main():
         res = sb.storage.from_(BUCKET).upload(
             dest_path,
             data,
-            {"contentType": content_type, "upsert": bool(args.upsert)},
+            {
+                "contentType": content_type,
+                "upsert": "true" if args.upsert else "false",
+            },
         )
 
         # Get a public URL if your bucket is Public (as we set up)
