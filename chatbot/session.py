@@ -11,6 +11,5 @@ def get_chat_session():
     return st.session_state.chat_session
 
 def clear_chat_session():
-    """Remove only the chatbot session (not all session state)."""
     if "chat_session" in st.session_state:
         del st.session_state["chat_session"]
