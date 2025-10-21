@@ -19,6 +19,7 @@ Pamela Anne C. Serrano
   - **Note**: If starting the command with `python3` does not work, use the exact Python version installed (e.g., `python3.12`)
 - Activate the virtual environment with `venv\Scripts\activate` (Windows) or `source venv/bin/activate` (Unix/MacOS)
 - Install the dependencies with `pip install -r requirements.txt`
+- Create `/.streamlit/secrets.toml` (see `.streamlit/secrets.toml.example` for required fields).
 
 ## Running the Web App
 - In the same directory, start the application with `streamlit run rainloop.py`
