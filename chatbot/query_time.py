@@ -2,8 +2,14 @@
 import re
 from typing import Optional
 
-RE_MIN = re.compile(r"\bin\s*(\d+)\s*(?:min|mins|minute|minutes)\b", re.I)
-RE_HR  = re.compile(r"\bin\s*(\d+)\s*(?:hr|hrs|hour|hours)\b", re.I)
+RE_MIN = re.compile(
+    r"\bin\s*(?:the\s+)?(?:next\s+)?(\d+)\s*(?:min|mins|minute|minutes)\b",
+    re.I,
+)
+RE_HR = re.compile(
+    r"\bin\s*(?:the\s+)?(?:next\s+)?(\d+)\s*(?:hr|hrs|hour|hours)\b",
+    re.I,
+)
 
 def extract_offset_minutes(text: str) -> Optional[int]:
     """
