@@ -33,13 +33,14 @@ def normalize_place_name(name: str) -> str:
     return slug or "unknown"
 
 
+TIME_RE = re.compile(
+    r"in\s+(?:the\s+)?(?:next\s+)?\d+\s*(?:mins?|minutes?|hrs?|hours?)",
+    re.IGNORECASE,
+)
+
+
 def _strip_time_phrases(text: str) -> str:
-    return re.sub(
-        r"in\s+\d+\s*(?:mins?|minutes?|hrs?|hours?)",
-        " ",
-        text,
-        flags=re.IGNORECASE,
-    )
+    return TIME_RE.sub(" ", text)
 
 
 def _normalize_text(text: str) -> str:
@@ -67,7 +68,7 @@ def rank_locations(
     query: str,
     locations: List[Dict[str, Any]],
     limit: int = 5,
-    min_score: float = 0.65,
+    min_score: float = 0.5,
 ) -> List[Tuple[float, Dict[str, Any]]]:
     """
     Rank manifest locations against a free-form query.
@@ -88,6 +89,7 @@ def rank_locations(
     for loc in locations:
         place_text = _normalize_text(loc.get("place", ""))
         slug_text = _normalize_text(loc.get("normalized_place", "").replace("-", " "))
+        primary_text = _normalize_text((loc.get("place") or "").split(",")[0])
 
         # Exact slug match wins immediately
         if loc.get("normalized_place") == query_slug:
@@ -95,7 +97,16 @@ def rank_locations(
 
         score_place = _score_match(query_tokens, normalized_query, place_text)
         score_slug = _score_match(query_tokens, normalized_query, slug_text)
-        score = max(score_place, score_slug)
+        score_primary = _score_match(query_tokens, normalized_query, primary_text)
+
+        score = max(score_place, score_slug, score_primary)
+
+        if primary_text and primary_text in normalized_query:
+            score += 2.0
+
+        if primary_text and any(tok in primary_text.split() for tok in query_tokens):
+            score += 0.5
+
         if score >= min_score:
             scored.append((score, loc))
 
@@ -106,4 +117,3 @@ def rank_locations(
 def best_location_match(query: str, locations: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     ranked = rank_locations(query, locations, limit=1)
     return ranked[0][1] if ranked else None
-
