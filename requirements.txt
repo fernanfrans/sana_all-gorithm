@@ -12,7 +12,7 @@ h5py==3.14.0
 xarray==2024.7.0
 tensorflow==2.20.0
 numpy==1.26.4
-scipy==1.13.1
+scipy==1.15.1
 netCDF4==1.7.2
 h5netcdf==1.6.4
 arm_pyart==1.19.2
