@@ -1,7 +1,7 @@
 import os
 from supabase import create_client, Client
 from dotenv import load_dotenv
-
+import streamlit as st
 # Build path to ../config/.env.example relative to this file
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), '../config/.env.example')
 
@@ -13,10 +13,13 @@ def get_client() -> Client:
     Create and return a Supabase client using the credentials
     from config/.env.
     """
-    url = os.getenv("SUPABASE_URL")
-    key = os.getenv("SUPABASE_KEY")
+    # Prefer Streamlit secrets for Streamlit runtime; fallback to environment
+    url = st.secrets.get("SUPABASE_URL") or os.getenv("SUPABASE_URL")
+    key = st.secrets.get("SUPABASE_KEY") or os.getenv("SUPABASE_KEY")
 
     if not url or not key:
-        raise ValueError("Missing SUPABASE_URL or SUPABASE_ANON_KEY in config/.env.example")
+       raise ValueError(
+            "Missing Supabase credentials. Set SUPABASE_URL and SUPABASE_KEY via environment or .streamlit/secrets.toml."
+        )
 
     return create_client(url, key)
