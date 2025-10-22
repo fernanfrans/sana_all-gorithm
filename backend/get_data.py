@@ -6,7 +6,7 @@ import nexradaws
 import pyart
 from dotenv import load_dotenv
 from supabase import create_client, Client
-from gridding import grid_radar_data
+from backend.gridding import grid_radar_data
 
 
 
