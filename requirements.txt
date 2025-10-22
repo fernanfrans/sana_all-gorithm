@@ -3,15 +3,14 @@ google-generativeai==0.8.5
 requests==2.32.5
 
 # TensorFlow stack
-tensorflow==2.19.1
-tf-keras==2.19.*          # <-- matches TF 2.19
+tensorflow==2.20.0
+tf-keras==2.20.*          # <-- matches TF 2.20
 absl-py==2.1.0
 grpcio==1.62.2
-protobuf==4.25.3
 
 # Numerics
 numpy==1.26.4
-scipy==1.11.4
+scipy==1.13.1
 h5py==3.14.0
 
 # Embeddings / vector search
@@ -31,6 +30,7 @@ arm_pyart==1.19.2
 supabase
 ijson
 streamlit
+streamlit-autorefresh
 nexradaws
 
 # Map visualization
