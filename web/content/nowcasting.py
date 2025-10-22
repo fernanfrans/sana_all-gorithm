@@ -1,10 +1,9 @@
 import streamlit as st
-from backend.predict import predict_main
+from backend.predict import main
 
 def render_nowcasting():
     st.markdown("### 📊 RAINLOOP Nowcasting Data")
-    processed_data = predict_main()
-
+    processed_data = main()
     if processed_data:
         st.success("✅ RAINLOOP backend data loaded successfully!")
         st.json(processed_data)

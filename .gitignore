@@ -1,3 +1,4 @@
+.streamlit/secrets.toml
 # Python
 __pycache__/
 *.py[cod]
