@@ -1,6 +1,6 @@
-from model import rainnet
+from backend.model import rainnet
 import base64
-from utils import normalize, denormalize, find_valid_sequences, flatten_sequences, get_reflectivity_data
+from backend.utils import normalize, denormalize, find_valid_sequences, flatten_sequences, get_reflectivity_data
 import os
 import json
 import math
@@ -14,11 +14,11 @@ from typing import Dict, List, Optional, Tuple
 
 import h5py
 import numpy as np
-from nc2h5 import convert_nc_to_h5
+from backend.nc2h5 import convert_nc_to_h5
 import h5py
 import tensorflow as tf
 from dotenv import load_dotenv
-from get_data import get_radar_data
+from backend.get_data import get_radar_data
 from supabase import create_client, Client
 
 
