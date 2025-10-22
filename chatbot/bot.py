@@ -1,31 +1,70 @@
-# -*- coding: utf-8 -*-
+# chatbot/bot.py
+import math
 import streamlit as st
-from chatbot.chunking import load_weather_json, chunk_weather_data
-from chatbot.embedding import embed_chunks, embed_query
-from chatbot.retrieval import build_faiss_index, retrieve
-from datetime import datetime
-from chatbot.logger import log_chat
+from datetime import datetime, timedelta, timezone
+
 from chatbot.session import get_chat_session, clear_chat_session
+from chatbot.query_time import extract_offset_minutes
+from chatbot.file_selector_supabase import MANILA_TZ, nearest_lead_minutes
+from chatbot.supabase_ops import (
+    latest_complete_run_dir,
+    load_manifest,
+    fetch_record_json,
+    resolve_offset_for_location,
+)
+from chatbot.location_lookup import rank_locations
 
-def run_chatbot():
-    # Load and process data once
-    json_data = load_weather_json()
-    chunks = chunk_weather_data(json_data)
-    embeddings = embed_chunks(chunks)
-    index = build_faiss_index(embeddings)
+st.set_page_config(page_title="RainLoop AI Assistant", page_icon="🌧️", layout="wide")
 
-    # Gemini Chat Session 
-    chat = get_chat_session()
 
-    # Initialize message history
+# ---------------- Session helpers ----------------
+
+def _ensure_session_state():
+    """Initialize all session_state keys used by the app."""
     if "messages" not in st.session_state:
         st.session_state["messages"] = []
+    if "chat_session" not in st.session_state:
+        try:
+            st.session_state["chat_session"] = get_chat_session()
+        except Exception:
+            st.session_state["chat_session"] = None
 
-    # Streamlit UI header
+
+def _append_message(role: str, avatar: str, content: str):
+    st.session_state.setdefault("messages", [])
+    st.session_state["messages"].append({"role": role, "avatar": avatar, "content": content})
+
+
+# ---------------- Utility functions ----------------
+
+def _format_local(dt: datetime) -> str:
+    return dt.astimezone(MANILA_TZ).strftime("%Y-%m-%d %I:%M %p %Z")
+
+
+def _valid_datetime(base_time_utc: datetime, lead_minutes: int) -> datetime:
+    return base_time_utc + timedelta(minutes=int(lead_minutes))
+
+
+def _display_run_freshness(base_time_utc: datetime):
+    run_age = datetime.now(timezone.utc) - base_time_utc
+    if run_age > timedelta(minutes=10):
+        minutes_old = run_age.total_seconds() / 60
+        st.warning(
+            f"Latest run is {minutes_old:.1f} minutes old. A new update should arrive soon."
+        )
+
+
+# ---------------- Main app ----------------
+
+def run_chatbot():
+    _ensure_session_state()
+    chat = st.session_state.get("chat_session") or get_chat_session()
+
+    # Header & controls
     st.markdown("---")
     col1, col2, col3 = st.columns([13, 1, 1], gap="small")
     with col1:
-        st.markdown("### 🌧️ RainLoop AI Assistant - Ask me...💬")
+        st.markdown("### 🦾🌧️ RainLoop AI Assistant - Ask me...💬")
     with col2:
         if st.button("↻ Restart"):
             st.session_state["messages"] = []
@@ -36,38 +75,14 @@ def run_chatbot():
             st.session_state["messages"] = []
             st.success("Clear!")
 
-    assistant_avatar = "assets/finalicon.png"
-    # user avatar as explicit unicode sequence (🧑🏽‍💻)
-    user_avatar = "\U0001F9D1\U0001F3FD\u200D\U0001F4BB"
-
-    st.markdown(
-        """
-        <style>
-        [data-testid="stChatMessageAvatar"] img {
-            object-fit: contain !important;
-            width: 42px !important;
-            height: 42px !important;
-            padding: 3px !important;
-            background-color: white !important;
-            border-radius: 10px !important;
-            border: 1px solid #e0e0e0 !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
+    # Display previous messages
     for msg in st.session_state["messages"]:
-        if msg.get("role") == "assistant":
-            with st.chat_message("assistant", avatar=assistant_avatar):
-                st.markdown(msg.get("content", ""))
-        else:
-            with st.chat_message("user", avatar=user_avatar):
-                st.markdown(msg.get("content", ""))
+        with st.chat_message(msg["role"], avatar=msg["avatar"]):
+            st.markdown(msg["content"])
 
-    query = st.chat_input(
-        "Ask RainLoop AI Assistant about weather conditions, forecasts, or warnings in your area!"
-    )
+    # Input box
+    query = st.chat_input("Ask RainLoop AI Assistant about weather conditions, forecasts, or warnings in your area!")
+
     error_message = "⚠️ No relevant weather data found for your query. Try another location or keyword."
 
     if query:
@@ -75,8 +90,12 @@ def run_chatbot():
         
         # Store and display user message
         user_msg = f"**[{timestamp}]** {query}"
-        st.session_state["messages"].append({"role": "user", "content": user_msg})
-        with st.chat_message("user", avatar=user_avatar):
+        st.session_state["messages"].append({
+            "role": "user",
+            "avatar": "🧑‍💻",
+            "content": user_msg
+        })
+        with st.chat_message("user", avatar="🧑‍💻"):
             st.markdown(user_msg)
 
         # Embed query and retrieve results
@@ -86,12 +105,15 @@ def run_chatbot():
         if not results:
             # No results found
             st.warning(error_message)
-            st.session_state["messages"].append({"role": "assistant", "content": error_message})
-            with st.chat_message("assistant", avatar=assistant_avatar):
-                st.markdown(error_message)
+            st.session_state["messages"].append({
+                "role": "assistant",
+                "avatar": "🌧️",
+                "content": error_message
+            })
             log_chat(user_input=query, response=error_message, mode="rag")
         else:
-            context = "\n".join([r.get("text", "") for r in results])
+            context = "\n".join([r["text"] for r in results])
+            # Gemini Prompt
             prompt = (
                 f"Act as the RadarLoop Weather Assistant that provides nowcasted information. "
                 f"Using the following predicted weather information:\n{context}\n"
@@ -108,8 +130,13 @@ def run_chatbot():
                 except Exception as e:
                     answer = f"⚠️ Error generating response: {e}"
 
-            st.session_state["messages"].append({"role": "assistant", "content": answer})
-            with st.chat_message("assistant", avatar=assistant_avatar):
+            # Store and display assistant message
+            st.session_state["messages"].append({
+                "role": "assistant",
+                "avatar": "🌧️",
+                "content": answer
+            })
+            with st.chat_message("assistant", avatar="🌧️"):
                 st.markdown(answer)
 
             log_chat(user_input=query, response=answer, mode="rag")
