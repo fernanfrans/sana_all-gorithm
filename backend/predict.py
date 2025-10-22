@@ -1,4 +1,7 @@
+import requests
+from backend.model import rainnet
 import base64
+from backend.utils import normalize, denormalize, find_valid_sequences, flatten_sequences, get_reflectivity_data
 import os
 import json
 import math
@@ -12,21 +15,14 @@ from typing import Dict, List, Optional, Tuple
 
 import h5py
 import numpy as np
+from backend.nc2h5 import convert_nc_to_h5
+import h5py
 import tensorflow as tf
 from dotenv import load_dotenv
-from supabase import Client, create_client
+from backend.get_data import get_radar_data
+from supabase import create_client, Client
+import streamlit as st
 
-from get_data import get_radar_data
-from nc2h5 import convert_nc_to_h5
-
-from model import rainnet
-from utils import (
-    normalize,
-    denormalize,
-    find_valid_sequences,
-    flatten_sequences,
-    get_reflectivity_data,
-)
 
 
 # ----------------------------
@@ -39,8 +35,9 @@ def init_supabase():
     SUPABASE_KEY = os.getenv("SUPABASE_KEY")
     BUCKET_NAME_PREDICTED = os.getenv("BUCKET_PREDICTED")
     BUCKET_NAME_NC = os.getenv("BUCKET_NC")
+    BUCKET_NAME_METADATA = os.getenv("BUCKET_METADATA")
     client = create_client(SUPABASE_URL, SUPABASE_KEY)
-    return client, BUCKET_NAME_PREDICTED, BUCKET_NAME_NC
+    return client, BUCKET_NAME_PREDICTED, BUCKET_NAME_NC, BUCKET_NAME_METADATA
 
 
 def normalize_place_name(name: str) -> str:
@@ -110,27 +107,42 @@ def predicted_data(input_data, model_path):
     latest_observation = np.asarray(process_data[3])
     return predictions_2hours, completion_dt, latest_observation
 
+
+def ensure_model_exists():
+    MODEL_PATH = "backend/rainnet_FINAL4.weights.h5"
+    MODEL_URL = "https://huggingface.co/frnnfrns/rainnet-model/resolve/main/rainnet_FINAL4.weights.h5"
+
+    if not os.path.exists(MODEL_PATH):
+        print("🧠 Downloading model from Hugging Face...")
+        os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
+        try:
+            response = requests.get(MODEL_URL, stream=True)
+            response.raise_for_status()
+            with open(MODEL_PATH, "wb") as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+            print("✅ Model downloaded successfully.")
+        except Exception as e:
+            print(f"❌ Failed to download model: {e}")
+            raise
+    else:
+        print("✅ Model already exists locally.")
+    return MODEL_PATH
+
+
+@st.cache_resource
 def load_model(model_path):
     model = rainnet()
     model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=3e-4), loss='log_cosh')
     model.load_weights(model_path)
     return model
 
-def pred_to_json(
-    predictions,
-    metadata_path,
-    supabase_client,
-    BUCKET_NAME,
-    base_time: datetime,
-):
+def pred_to_json(predictions, metadata, supabase_client, BUCKET_NAME, base_time: datetime):
     """
     Convert predictions to JSON format suitable for raw storage.
     Filenames follow RAW_YYYYMMDD_HHMMSS based on base_time + lead minutes.
     """
-    # load metadata
-    with open(metadata_path, 'r') as f:
-        metadata = json.load(f)
-
+    
     print(metadata.keys())
     predicted_refl = np.array(predictions)
     T = predicted_refl.shape[0]
@@ -324,9 +336,8 @@ def pred_to_chatbot_data(
     Convert predictions to per-location chatbot JSON files.
     Filenames follow CHATBOT_YYYYMMDD_HHMMSS using base_time + lead minutes.
     """
-    with open(locations_path, "r", encoding="utf-8") as f:
-        locations_payload = json.load(f)
-    locations = locations_payload.get("locations", [])
+    
+    locations = locations_path.get("locations", [])
 
     if not locations:
         raise ValueError("Locations list is empty; unable to map predictions to places.")
@@ -499,23 +510,39 @@ def get_data_from_supabase(supabase_client, BUCKET_NAME):
         print(f"Error downloading files from Supabase: {e}")
         return None
 
-def main():
+def get_file_from_supabase(supabase_client, BUCKET_NAME, filename):
+    """
+    Download metadata JSON file from Supabase bucket.
+    """
+    try:
+        data = supabase_client.storage.from_(BUCKET_NAME).download(filename)
+        file = json.loads(data.decode('utf-8'))
+        return file
+    except Exception as e:
+        print(f"Error downloading metadata from Supabase: {e}")
+        return None
+
+def predict_main():
     # Define paths and initialize Supabase
-    metadata_path = "/Users/ma.angelikac.regoso/Desktop/PJDSCCHAMPION2025V2/sana_all-gorithm/backend/KCYS_metadata.json"
-    model_path = "/Users/ma.angelikac.regoso/Desktop/PJDSCCHAMPION2025V2/sana_all-gorithm/backend/rainnet_FINAL4.weights.h5"
-    locations_path = "/Users/ma.angelikac.regoso/Desktop/PJDSCCHAMPION2025V2/sana_all-gorithm/backend/locations.json"
-    supabase_client, bucket_predicted, bucket_nc = init_supabase()
-     # Clear existing files in Supabase buckets
+    supabase_client, bucket_predicted, bucket_nc, bucket_meta = init_supabase()
+    metadata = get_file_from_supabase(supabase_client, bucket_meta, "KCYS_metadata.json")
+    locations = get_file_from_supabase(supabase_client, bucket_meta, "locations.json")
+    ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    model_path = ensure_model_exists()
+
+    # # Clear existing files in Supabase buckets
     clear_bucket(supabase_client, bucket_predicted)
     # Clear existing NetCDF inputs before downloading new radar data
     clear_bucket(supabase_client, bucket_nc)
     # Get radar data, make predictions, and upload results
+    print("Starting radar data retrieval...")
     get_radar_data(supabase_client, bucket_nc)
+    print("Radar data retrieval completed.")
     input_data = get_data_from_supabase(supabase_client, bucket_nc)
     predictions_2hours, base_time, latest_observation = predicted_data(input_data, model_path)
     pred_to_json(
         predictions_2hours,
-        metadata_path,
+        metadata,
         supabase_client,
         bucket_predicted,
         base_time,
@@ -523,16 +550,16 @@ def main():
     pred_to_chatbot_data(
         predictions_2hours,
         latest_observation,
-        locations_path,
+        locations,
         supabase_client,
         bucket_predicted,
         base_time,
     )
 
     return True
-    
+
 
 if __name__ == "__main__":
-    main()
+    predict_main()
     print("Prediction process completed.")
     
