@@ -10,6 +10,7 @@ import struct
 import zlib
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
+import st
 from typing import Dict, List, Optional, Tuple
 
 import h5py
@@ -104,6 +105,7 @@ def predicted_data(input_data, model_path):
     latest_observation = np.asarray(process_data[3])
     return predictions_2hours, completion_dt, latest_observation
 
+@st.cache_resource
 def load_model(model_path):
     model = rainnet()
     model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=3e-4), loss='log_cosh')
