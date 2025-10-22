@@ -1,16 +1,28 @@
+import os
+import json
 import numpy as np
 import streamlit as st
+from dotenv import load_dotenv
+from supabase import Client, create_client
+
+def init_supabase():
+    dotenv_path = os.path.join(os.path.dirname(__file__), '../config/.env.example')
+    load_dotenv(dotenv_path)
+    SUPABASE_URL = os.getenv("SUPABASE_URL")
+    SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+    BUCKET_NAME_PREDICTED = os.getenv("BUCKET_PREDICTED")
+    BUCKET_NAME_NC = os.getenv("BUCKET_NC")
+    client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    return client, BUCKET_NAME_PREDICTED, BUCKET_NAME_NC
 
 @st.cache_data
 def generate_radar_data():
-    lat_range = np.linspace(10, 20, 50)
-    lon_range = np.linspace(118, 128, 50)
-    lon_grid, lat_grid = np.meshgrid(lon_range, lat_range)
-
-    center_lat, center_lon = 14.5, 121.0
-    distance = np.sqrt((lat_grid - center_lat)**2 + (lon_grid - center_lon)**2)
-    angle = np.arctan2(lat_grid - center_lat, lon_grid - center_lon)
-    spiral = np.sin(3 * angle + 2 * distance)
-
-    rainfall = 50 * np.exp(-distance/2) * (1 + 0.5 * spiral) * np.random.uniform(0.8, 1.2, distance.shape)
-    return lat_grid, lon_grid, np.maximum(rainfall, 0)
+    supabase_client, bucket_predicted, bucket_nc = init_supabase()
+    
+    predicted_data = {}
+    files = supabase_client.storage.from_(bucket_predicted).list()
+    for i, f in enumerate(filter(lambda x: x["name"].startswith("RAW"), files)):
+        data_bytes = supabase_client.storage.from_(bucket_predicted).download(f["name"])
+        data = json.loads(data_bytes.decode("utf-8"))
+        predicted_data[f"+{(i+1)*5}min"] = data
+    return predicted_data

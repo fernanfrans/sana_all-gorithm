@@ -30,5 +30,9 @@ arm_pyart==1.19.2
 supabase
 ijson
 streamlit
-nexradaws
 streamlit-autorefresh
+nexradaws
+
+# Map visualization
+streamlit-folium
+geopandas
