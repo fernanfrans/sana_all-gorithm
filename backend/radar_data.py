@@ -2,23 +2,27 @@ import os
 import json
 import numpy as np
 import streamlit as st
+from dotenv import load_dotenv
+from supabase import Client, create_client
 
-# TODO: Get prediction data from Supabase instead
+def init_supabase():
+    dotenv_path = os.path.join(os.path.dirname(__file__), '../config/.env.example')
+    load_dotenv(dotenv_path)
+    SUPABASE_URL = os.getenv("SUPABASE_URL")
+    SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+    BUCKET_NAME_PREDICTED = os.getenv("BUCKET_PREDICTED")
+    BUCKET_NAME_NC = os.getenv("BUCKET_NC")
+    client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    return client, BUCKET_NAME_PREDICTED, BUCKET_NAME_NC
+
 @st.cache_data
-def generate_radar_data(filename):
-    # Get the absolute path to the prediction results file
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    json_path = os.path.join(script_dir, "predicted_json", filename)
+def generate_radar_data():
+    supabase_client, bucket_predicted, bucket_nc = init_supabase()
     
-    # Open and load the JSON file
-    with open(json_path, "r") as f:
-        data = json.load(f)
-
-    # Extract coordinate arrays
-    coords = data["coordinates"]
-
-    # Convert to NumPy arrays
-    lat_grid = np.array(coords["lat"])
-    lon_grid = np.array(coords["lon"])
-    reflectivity = np.array(data["reflectivity"])
-    return lat_grid, lon_grid, reflectivity
+    predicted_data = {}
+    files = supabase_client.storage.from_(bucket_predicted).list()
+    for i, f in enumerate(filter(lambda x: x["name"].startswith("RAW"), files)):
+        data_bytes = supabase_client.storage.from_(bucket_predicted).download(f["name"])
+        data = json.loads(data_bytes.decode("utf-8"))
+        predicted_data[f"+{(i+1)*5}min"] = data
+    return predicted_data
