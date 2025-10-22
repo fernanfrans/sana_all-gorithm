@@ -1,18 +1,34 @@
-streamlit==1.49.1
 python-dotenv==1.1.1
 google-generativeai==0.8.5
 requests==2.32.5
-numpy
-plotly==6.3.0
+
+# TensorFlow stack
+tensorflow==2.20.0
+tf-keras==2.20.*          # <-- matches TF 2.20
+absl-py==2.1.0
+grpcio==1.62.2
+
+# Numerics
+numpy==1.26.4
+scipy==1.13.1
+h5py==3.14.0
+
+# Embeddings / vector search
 faiss-cpu==1.12.0
 sentence-transformers==3.0.1
-torch>=2.0.0
+torch>=2.1
+transformers<4.42 
 
-# for predicting
-h5py==3.14.0
+# Viz / data
+plotly==6.3.0
 xarray==2024.7.0
-tensorflow==2.20.0
-scipy==1.13.1
 netCDF4==1.7.2
 h5netcdf==1.6.4
 arm_pyart==1.19.2
+
+# Other
+supabase
+ijson
+streamlit
+nexradaws
+streamlit-autorefresh

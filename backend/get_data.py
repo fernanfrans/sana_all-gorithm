@@ -6,14 +6,14 @@ import nexradaws
 import pyart
 from dotenv import load_dotenv
 from supabase import create_client, Client
-from gridding import grid_radar_data
+from backend.gridding import grid_radar_data
 
 
 
 # ----------------------------
 # NEXRAD AWS Radar Processing
 # ----------------------------
-def get_recent_scans(radar_id: str, hours_back: int = 2):
+def get_recent_scans(radar_id: str, hours_back: int = 12):
     conn = nexradaws.NexradAwsInterface()
     now_utc = datetime.now(pytz.UTC)
     start_time_utc = now_utc - timedelta(hours=hours_back)

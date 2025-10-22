@@ -1,3 +1,4 @@
+.streamlit/secrets.toml
 # Python
 __pycache__/
 *.py[cod]
@@ -5,7 +6,6 @@ __pycache__/
 *.egg-info/
 dist/
 build/
-.env
 *.sqlite3
 
 # macOS

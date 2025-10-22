@@ -1,27 +1,27 @@
-import json
-import os
+# chatbot/chunking.py (keep your version if you already added streaming)
+import json, os
+from typing import Dict, Generator
 
-filepath = "chatbot-data/20250527_000900.json"
-
-def load_weather_json(path=filepath):
-    if not os.path.exists(path):
-        print(f"Error: File '{path}' does not exist.")
-        return None
+def _stream_entries(path: str) -> Generator[Dict, None, None]:
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except json.JSONDecodeError as e:
-        print(f"Error decoding JSON from '{path}': {e}")
-    except Exception as e:
-        print(f"Unexpected error reading '{path}': {e}")
-    return None
+        import ijson  # pip install ijson
+        with open(path, "rb") as f:
+            for entry in ijson.items(f, "weather_data.item"):
+                if isinstance(entry, dict):
+                    yield entry
+    except ImportError:
+        data = json.load(open(path, "r", encoding="utf-8"))
+        for entry in data.get("weather_data", []):
+            yield entry
 
-def chunk_weather_data(json_data):
-    chunks = []
-    for entry in json_data["weather_data"]:
-        text = (
-            f"{entry['place']} is located at latitude {entry['latitude']} and longitude {entry['longitude']}. "
-            f"It has a reflectivity of {entry['reflectivity']} dBZ, indicating {entry['rain_category']} rain."
-        )
-        chunks.append({"text": text, "metadata": entry})
-    return chunks
+def format_entry_as_text(entry: Dict) -> str:
+    place = entry.get("place", "Unknown place")
+    lat = entry.get("latitude", "N/A")
+    lon = entry.get("longitude", "N/A")
+    refl = entry.get("reflectivity", "N/A")
+    cat = entry.get("rain_category", "Unknown")
+    return f"{place}: lat {lat}, lon {lon}. Reflectivity {refl} dBZ → {cat} rain."
+
+def chunk_iter_from_file(path: str) -> Generator[Dict, None, None]:
+    for entry in _stream_entries(path):
+        yield {"text": format_entry_as_text(entry), "metadata": entry}
