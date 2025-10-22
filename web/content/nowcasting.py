@@ -22,4 +22,4 @@ def render_nowcasting():
             except Exception as e:
                 st.error(f"❌ Error: {e}")
     else:
-        st.info(f"🟢 Waiting until next refresh cycle ({count}).")
+        st.error("❌ Could not load RAINLOOP backend data")
