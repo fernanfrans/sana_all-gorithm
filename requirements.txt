@@ -31,3 +31,4 @@ supabase
 ijson
 streamlit
 nexradaws
+streamlit-autorefresh
