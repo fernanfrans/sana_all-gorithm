@@ -1,3 +1,4 @@
+import requests
 from backend.model import rainnet
 import base64
 from backend.utils import normalize, denormalize, find_valid_sequences, flatten_sequences, get_reflectivity_data
@@ -10,7 +11,6 @@ import struct
 import zlib
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
-import st
 from typing import Dict, List, Optional, Tuple
 
 import h5py
@@ -21,6 +21,8 @@ import tensorflow as tf
 from dotenv import load_dotenv
 from backend.get_data import get_radar_data
 from supabase import create_client, Client
+import streamlit as st
+
 
 
 # ----------------------------
@@ -104,6 +106,29 @@ def predicted_data(input_data, model_path):
     completion_dt = datetime.now(timezone.utc).replace(second=0, microsecond=0)
     latest_observation = np.asarray(process_data[3])
     return predictions_2hours, completion_dt, latest_observation
+
+
+def ensure_model_exists():
+    MODEL_PATH = "backend/rainnet_FINAL4.weights.h5"
+    MODEL_URL = "https://huggingface.co/frnnfrns/rainnet-model/resolve/main/rainnet_FINAL4.weights.h5"
+
+    if not os.path.exists(MODEL_PATH):
+        print("🧠 Downloading model from Hugging Face...")
+        os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
+        try:
+            response = requests.get(MODEL_URL, stream=True)
+            response.raise_for_status()
+            with open(MODEL_PATH, "wb") as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+            print("✅ Model downloaded successfully.")
+        except Exception as e:
+            print(f"❌ Failed to download model: {e}")
+            raise
+    else:
+        print("✅ Model already exists locally.")
+    return MODEL_PATH
+
 
 @st.cache_resource
 def load_model(model_path):
@@ -503,7 +528,7 @@ def predict_main():
     metadata = get_file_from_supabase(supabase_client, bucket_meta, "KCYS_metadata.json")
     locations = get_file_from_supabase(supabase_client, bucket_meta, "locations.json")
     ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    model_path = os.path.join(ROOT_DIR, "backend", "rainnet_FINAL4.weights.h5")
+    model_path = ensure_model_exists()
 
     # # Clear existing files in Supabase buckets
     clear_bucket(supabase_client, bucket_predicted)
