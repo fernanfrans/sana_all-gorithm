@@ -6,6 +6,16 @@ from backend.radar_data import generate_radar_data
 from folium.plugins import HeatMapWithTime, HeatMap
 from folium import Map, Marker
 
+def process_radar_data(prediction_data):
+    # Extract coordinate arrays
+    coords = prediction_data["coordinates"]
+
+    # Convert to NumPy arrays
+    lat_grid = np.array(coords["lat"])
+    lon_grid = np.array(coords["lon"])
+    reflectivity = np.array(prediction_data["reflectivity"])
+    return lat_grid, lon_grid, reflectivity
+
 def render_radar():
     # Use full-browser width
     st.set_page_config(layout="wide")
@@ -31,9 +41,12 @@ def render_radar():
     frames = list(range(5, 125, 5))
     
     # Initialize session state
+    if "prediction_data" not in st.session_state:
+        st.session_state.prediction_data = {}
+
     if "map_center" not in st.session_state or "map_bounds" not in st.session_state:
         # Get initial latitude and longitude grids
-        lat_grid_0, lon_grid_0, _ = generate_radar_data(f"prediction_+{frames[0]}min.json")
+        lat_grid_0, lon_grid_0, _ = process_radar_data(st.session_state.prediction_data[f"+{frames[0]}min"])
         
         # Set map center
         st.session_state.map_center = [np.mean(lat_grid_0), np.mean(lon_grid_0)]
@@ -81,7 +94,7 @@ def render_radar():
         st.info("👆 Click on the map to place a marker")
         
         # Get the latest frame data
-        lat_grid_latest, lon_grid_latest, rainfall_latest = generate_radar_data(f"prediction_+{frames[-1]}min.json")
+        lat_grid_latest, lon_grid_latest, rainfall_latest = process_radar_data(st.session_state.prediction_data[f"+{frames[-1]}min"])
         
         # Build static heatmap data for latest frame
         heat_data_latest = []
@@ -103,8 +116,7 @@ def render_radar():
         if st.session_state.marker_location:
             Marker(
                 location=st.session_state.marker_location,
-                popup=f"Selected: {st.session_state.marker_location}",
-                icon=folium.Icon(color='red')
+                popup=f"Selected: {st.session_state.marker_location}"
             ).add_to(map)
         
         # Display with st_folium to capture clicks
@@ -137,7 +149,7 @@ def render_radar():
         # Prepare HeatMapWithTime data
         heat_data_seq = []
         for n in frames:
-            lat_grid_frame, lon_grid_frame, rainfall_frame = generate_radar_data(f"prediction_+{n}min.json")
+            lat_grid_frame, lon_grid_frame, rainfall_frame = process_radar_data(st.session_state.prediction_data[f"+{n}min"])
             
             # Build HeatMap for this frame
             heat_data = []
@@ -163,8 +175,7 @@ def render_radar():
         if st.session_state.marker_location:
             Marker(
                 location=st.session_state.marker_location,
-                popup=f"Selected: {st.session_state.marker_location}",
-                icon=folium.Icon(color='red')
+                popup=f"Selected: {st.session_state.marker_location}"
             ).add_to(map)
         
         # Display animated map
