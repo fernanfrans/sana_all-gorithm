@@ -3,12 +3,6 @@ from datetime import datetime
 
 def render_sidebar():
     with st.sidebar:
-        st.markdown("### ⚙️ Controls")
-        st.markdown("#### Radar Settings")
-        st.selectbox("Update Interval", ["Real-time", "5 minutes", "15 minutes", "30 minutes"])
-        st.checkbox("Show Typhoon Track", value=True)
-        st.checkbox("Show Warning Areas", value=True)
-
         st.markdown("#### Data Sources")
         st.markdown("- **Radar:** Doppler Weather Radar Network")
         st.markdown("- **Nowcasting:** RAINLOOP AI Model")  
