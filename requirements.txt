@@ -30,3 +30,4 @@ arm_pyart==1.19.2
 supabase
 ijson
 streamlit
+nexradaws
