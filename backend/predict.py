@@ -504,7 +504,7 @@ def predict_main():
     model_path = os.path.join(ROOT_DIR, "backend", "rainnet_FINAL4.weights.h5")
 
     # # Clear existing files in Supabase buckets
-    # clear_bucket(supabase_client, bucket_predicted)
+    clear_bucket(supabase_client, bucket_predicted)
     # Clear existing NetCDF inputs before downloading new radar data
     clear_bucket(supabase_client, bucket_nc)
     # Get radar data, make predictions, and upload results
