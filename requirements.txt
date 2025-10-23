@@ -4,7 +4,7 @@ requests==2.32.5
 
 # TensorFlow stack
 tensorflow==2.19.0
-tf-keras==2.19.*          # <-- matches TF 2.20
+tf-keras==2.19.*          # <-- matches TF 2.19
 absl-py==2.1.0
 grpcio==1.62.2
 

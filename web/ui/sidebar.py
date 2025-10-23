@@ -13,4 +13,5 @@ def render_sidebar():
         st.markdown(f"🕐 {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}")
 
         if st.button("🔄 Refresh Data"):
+            st.cache_data.clear()
             st.rerun()
