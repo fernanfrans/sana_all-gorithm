@@ -21,6 +21,7 @@ The web app automatically updates rainfall predictions every 10 minutes using th
 
 The framework enables **proactive decision-making** for weather-sensitive activities by integrating cutting-edge AI with real-time meteorological data.
 
+![Project Logo](assets/rainloop.png)
 ## Requirements
 - Python: https://www.python.org/downloads
   - **Note**: Python versions `3.13.x` and above do not work properly with this web app. Install an older version (up to `3.12.x`)
