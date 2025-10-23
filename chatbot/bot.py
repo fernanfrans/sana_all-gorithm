@@ -126,9 +126,7 @@ def run_chatbot():
         if not summary:
             return
         freshness_icon = "✅" 
-        age_text = summary.get("age_text") or ""
         lines = [
-            f"Age: {age_text}",
             f"Base Time of Last Predictions : {summary.get('base_time_local','?')}",
             f"Requested Time: {summary.get("requested_local", "?")}",
             f"Chosen Predicted Time for Query : {summary.get('valid_local','?')}",
