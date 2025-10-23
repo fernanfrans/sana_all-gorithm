@@ -1,12 +1,25 @@
 ![Project Logo](assets/logo1.png)
-## PJDSC 2025
+
+# PJDSC 2025  
+### Sana All-gorithm  
+
+**Authors:**<br>
+Fernan Frans B. Pelobello<br>
+Maxine Van L. Caparas<br>
+Ma. Angelika C. Regoso<br>
+Pamela Anne C. Serrano
+
 # Radar Reflectivity-Based Nowcasting Framework for Short-Term Rainfall Prediction
 
-### Sana All-gorithm
-Fernan Frans B. Pelobello\
-Maxine Van L. Caparas\
-Ma. Angelika C. Regoso\
-Pamela Anne C. Serrano
+This project develops an **end-to-end framework for short-term rainfall prediction** using nowcasted radar reflectivity (dBZ). It combines advanced deep learning and AI technologies to provide actionable weather insights:
+
+- **RainNet-Based Nowcasting Model:** Leveraging radar reflectivity data to predict rainfall intensity in the near term.  
+- **AI-Powered Chatbot:** An OpenAI LLM chatbot interprets model outputs and delivers actionable recommendations to users.  
+- **Interactive Web App:** A Streamlit application visualizes predictions with intuitive charts and alerts, making the system user-friendly and accessible.
+
+The web app automatically updates rainfall predictions every 10 minutes using the RainNet nowcasting model, while the AI-powered chatbot provides actionable insights based on the latest data.
+
+The framework enables **proactive decision-making** for weather-sensitive activities by integrating cutting-edge AI with real-time meteorological data.
 
 ## Requirements
 - Python: https://www.python.org/downloads
