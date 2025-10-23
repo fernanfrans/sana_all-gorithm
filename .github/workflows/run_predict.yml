@@ -1,0 +1,26 @@
+name: Run predict.py Every 10 Minutes
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"  # every 10 minutes (UTC)
+  workflow_dispatch:  # allows manual run if needed
+
+jobs:
+  run-predict:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"  # match your Streamlit environment
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run predict.py
+        run: python backend/predict.py
