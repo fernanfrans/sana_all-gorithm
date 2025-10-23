@@ -7,7 +7,7 @@ from web.content.warnings import render_warnings
 from web.content.current_weather import render_weather
 from web.content.nowcasting import render_nowcasting
 from web.content.radar import render_radar
-# from chatbot.bot import run_chatbot
+from chatbot.bot import run_chatbot
 
 # Page config
 st.set_page_config(
