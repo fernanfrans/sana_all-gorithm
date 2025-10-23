@@ -1,19 +1,40 @@
 import streamlit as st
 import requests
 from datetime import datetime, timedelta
+from geopy.geocoders import Nominatim
+from geopy.extra.rate_limiter import RateLimiter
+
 
 def render_weather():
     # --- CONFIG ---
-    API_KEY = "INSERT_API"  # Replace with your actual OpenWeatherMap API key
-    CITY = "Quezon City,PH"  
-    AUTO_UPDATE_INTERVAL = 5  # minutes
+    API_KEY = "e3e8d1182d2f9e70f6826ee27f5ce9ef"  # Replace with your actual OpenWeatherMap API key
+    
+    # --- Initialize marker_location safely ---
+    if st.session_state.marker_location:
+        lat = st.session_state.marker_location[0]
+        lon = st.session_state.marker_location[1]
+    else:
+        lat, lon = 41.151920318603516, -104.8060302734375  # Default radar origin location
+    
+    # do reverse geocoding to get city name
+    geolocator = Nominatim(user_agent="my_reverse_geocoder")
+    reverse = RateLimiter(geolocator.reverse, min_delay_seconds=1)  # avoid hammering the service
+    location = reverse((lat, lon), language="en")
+
+    # city name extraction
+    if location:
+        CITY = location.address  
+    AUTO_UPDATE_INTERVAL = 5  
 
     # --- DYNAMIC TITLE ---
     city_display = CITY.replace(",PH", "")
     st.markdown(f"### 🌤️ Current Weather - {city_display}")
 
     # --- WEATHER API URL ---
-    URL = f"http://api.openweathermap.org/data/2.5/weather?q={CITY}&units=metric&appid={API_KEY}"
+    URL = "http://api.openweathermap.org/data/2.5/weather"
+    params = {"lat": lat, "lon": lon, "units": "metric", "appid": API_KEY}
+    response = requests.get(URL, params=params)
+    data = response.json()
 
     # --- SESSION STATE INIT ---
     if "weather_data" not in st.session_state:
@@ -24,15 +45,12 @@ def render_weather():
     def fetch_weather():
         """Fetch latest weather data and update session state."""
         try:
-            response = requests.get(URL)
-            data = response.json()
-
             if data.get("cod") != 200:
                 st.error(f"Error fetching weather: {data.get('message')}")
                 return
 
             st.session_state.weather_data = data
-            st.session_state.last_updated = datetime.utcnow() + timedelta(hours=8)  # PH time
+            st.session_state.last_updated = datetime.utcnow() + timedelta(hours=8)  
         except Exception as e:
             st.error(f"Failed to fetch weather: {e}")
 

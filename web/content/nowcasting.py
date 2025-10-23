@@ -3,6 +3,7 @@ from backend.radar_data import generate_radar_data
 
 def render_nowcasting():
     st.markdown("### 📊 RAINLOOP Nowcasting Data")
+
     processed_data = generate_radar_data()
 
     if processed_data:
