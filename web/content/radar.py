@@ -58,7 +58,7 @@ def render_radar():
         st.session_state.map_bounds = [[min_lat, min_lon], [max_lat, max_lon]]
 
     if "marker_location" not in st.session_state:
-        st.session_state.marker_location = None
+        st.session_state.marker_location = (41.151920318603516, -104.8060302734375)  # Default radar origin location
 
     if "selection_mode" not in st.session_state:
         st.session_state.selection_mode = False  # False = animated view, True = selection view
