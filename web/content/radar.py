@@ -41,8 +41,9 @@ def render_radar():
     frames = list(range(5, 125, 5))
     
     # Initialize session state
-    if "prediction_data" not in st.session_state:
-        st.session_state.prediction_data = {}
+    if "prediction_data" not in st.session_state or not st.session_state.prediction_data:
+        st.session_state.prediction_data = generate_radar_data()
+
 
     if "map_center" not in st.session_state or "map_bounds" not in st.session_state:
         # Get initial latitude and longitude grids
@@ -57,7 +58,7 @@ def render_radar():
         st.session_state.map_bounds = [[min_lat, min_lon], [max_lat, max_lon]]
 
     if "marker_location" not in st.session_state:
-        st.session_state.marker_location = None
+        st.session_state.marker_location = (41.151920318603516, -104.8060302734375)  # Default radar origin location
 
     if "selection_mode" not in st.session_state:
         st.session_state.selection_mode = False  # False = animated view, True = selection view
