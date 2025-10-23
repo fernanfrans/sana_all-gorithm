@@ -41,8 +41,9 @@ def render_radar():
     frames = list(range(5, 125, 5))
     
     # Initialize session state
-    if "prediction_data" not in st.session_state:
-        st.session_state.prediction_data = {}
+    if "prediction_data" not in st.session_state or not st.session_state.prediction_data:
+        st.session_state.prediction_data = generate_radar_data()
+
 
     if "map_center" not in st.session_state or "map_bounds" not in st.session_state:
         # Get initial latitude and longitude grids

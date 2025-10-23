@@ -5,7 +5,7 @@ from web.ui.banner import render_banner
 from web.ui.styles import inject_styles
 from web.content.warnings import render_warnings
 from web.content.current_weather import render_weather
-#from web.content.nowcasting import render_nowcasting
+from web.content.nowcasting import render_nowcasting
 from web.content.radar import render_radar
 # from chatbot.bot import run_chatbot
 
@@ -32,7 +32,7 @@ col1, col2 = st.columns([1, 2])
 with col1:
     render_warnings()
     render_weather()
-    #render_nowcasting()
+    render_nowcasting()
 
 with col2:
     render_radar()
