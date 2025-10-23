@@ -144,6 +144,19 @@ def inject_styles():
             color: #2563eb;
             font-weight: 600;
         }
+
+        /* Prevent global dimming overlay during reruns */
+        div[data-testid="stAppViewContainer"] .stAppOverlay {
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+        div[data-testid="stStatusWidget"] {
+            display: none !important;
+        }
+        div[data-testid="stAppViewContainer"].isRunning .block-container {
+            filter: none !important;
+            opacity: 1 !important;
+        }
     </style>
     """, unsafe_allow_html=True)
 

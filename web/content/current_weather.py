@@ -1,14 +1,14 @@
 import streamlit as st
 import requests
 from datetime import datetime, timedelta
-from geopy.geocoders import Nominatim
-from geopy.extra.rate_limiter import RateLimiter
+from dotenv import load_dotenv
+import os
 
 
 def render_weather():
     # --- CONFIG ---
-    API_KEY = "e3e8d1182d2f9e70f6826ee27f5ce9ef"  # Replace with your actual OpenWeatherMap API key
-    
+    API_KEY = os.getenv("MAP_API_KEY")
+    NOMATIM_URL = os.getenv("NOMATIM_URL")
     # --- Initialize marker_location safely ---
     if st.session_state.marker_location:
         lat = st.session_state.marker_location[0]
@@ -16,22 +16,36 @@ def render_weather():
     else:
         lat, lon = 41.151920318603516, -104.8060302734375  # Default radar origin location
     
-    # do reverse geocoding to get city name
-    geolocator = Nominatim(user_agent="my_reverse_geocoder")
-    reverse = RateLimiter(geolocator.reverse, min_delay_seconds=1)  # avoid hammering the service
-    location = reverse((lat, lon), language="en")
+    # do reverse geocoding to get city name using Nominatim HTTP API
+    CITY = "Selected Location"
+    try:
+        nominatim_params = {
+            "lat": lat,
+            "lon": lon,
+            "format": "json",
+            "zoom": 14,
+            "addressdetails": 1,
+        }
+        nominatim_headers = {"User-Agent": "RainLoop-Nowcast/1.0 (contact: support@rainloop.ai)"}
+        response = requests.get(NOMATIM_URL,
+            params=nominatim_params,
+            headers=nominatim_headers,
+            timeout=5,
+        )
+        response.raise_for_status()
+        geo_payload = response.json()
+        CITY = geo_payload.get("display_name") or CITY
+    except Exception:
+        pass
 
-    # city name extraction
-    if location:
-        CITY = location.address  
-    AUTO_UPDATE_INTERVAL = 5  
+    AUTO_UPDATE_INTERVAL = 5
 
     # --- DYNAMIC TITLE ---
-    city_display = CITY.replace(",PH", "")
+    city_display = CITY.replace(",PH", "").strip()
     st.markdown(f"### 🌤️ Current Weather - {city_display}")
 
     # --- WEATHER API URL ---
-    URL = "http://api.openweathermap.org/data/2.5/weather"
+    URL = os.getenv("WEATHER_URL")
     params = {"lat": lat, "lon": lon, "units": "metric", "appid": API_KEY}
     response = requests.get(URL, params=params)
     data = response.json()
@@ -64,8 +78,9 @@ def render_weather():
         fetch_weather()
 
     # --- MANUAL REFRESH BUTTON ---
-    if st.button("🔄 Refresh Now"):
-        fetch_weather()
+    if st.button("🔄 Refresh Weather", use_container_width=True):
+        with st.spinner("Updating weather…"):
+            fetch_weather()
 
     # --- DISPLAY WEATHER INFO ---
     if st.session_state.weather_data:

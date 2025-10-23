@@ -14,8 +14,8 @@ def get_client() -> Client:
     from config/.env.
     """
     # Prefer Streamlit secrets for Streamlit runtime; fallback to environment
-    url = st.secrets.get("SUPABASE_URL") or os.getenv("SUPABASE_URL")
-    key = st.secrets.get("SUPABASE_KEY") or os.getenv("SUPABASE_KEY")
+    url = os.getenv("SUPABASE_URL") or st.secrets.get("SUPABASE_URL")
+    key = os.getenv("SUPABASE_KEY") or st.secrets.get("SUPABASE_KEY")
 
     if not url or not key:
        raise ValueError(
