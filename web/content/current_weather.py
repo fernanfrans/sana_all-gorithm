@@ -14,8 +14,7 @@ def render_weather():
         lat = st.session_state.marker_location[0]
         lon = st.session_state.marker_location[1]
     else:
-         st.error("📍 Please select a location on the radar map first.")
-         return
+        lat, lon = 41.151920318603516, -104.8060302734375  # Default radar origin location
     
     # do reverse geocoding to get city name
     geolocator = Nominatim(user_agent="my_reverse_geocoder")

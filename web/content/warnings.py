@@ -7,14 +7,14 @@ def rain_category(dbz: float) -> str:
     if dbz is None or (isinstance(dbz, float) and np.isnan(dbz)):
         return "Unknown"
     if dbz > 65:
-        return "Extremely heavy"
+        return "Extremely heavy rain"
     if dbz >= 50:
-        return "Heavy"
+        return "Heavy rain"
     if dbz >= 40:
-        return "Moderate"
+        return "Moderate rain"
     if dbz >= 20:
-        return "Light"
-    return "Very light"
+        return "Light rain"
+    return "Very light rain"
 
 def get_reflectivity_at(lat, lon, prediction_frame):
     """Return reflectivity at nearest grid point to given lat/lon."""
@@ -28,31 +28,44 @@ def get_reflectivity_at(lat, lon, prediction_frame):
 
 def get_advisory(category: str) -> str:
     """Return precautionary measures based on rain category."""
-    if category == "Extremely heavy":
+    if category == "Extremely heavy rain":
         return ("⚠️ Extremely heavy rain expected. Stay indoors, avoid flood-prone areas, "
                 "secure outdoor items, and monitor local alerts.")
-    elif category == "Heavy":
+    elif category == "Heavy rain":
         return ("⚠️ Heavy rain expected. Carry an umbrella, avoid low-lying roads, "
                 "and stay cautious when traveling.")
-    elif category == "Moderate":
+    elif category == "Moderate rain":
         return ("🌧️ Moderate rain expected. Carry an umbrella and plan for wet conditions.")
-    elif category == "Light":
+    elif category == "Light rain":
         return ("🌦️ Light rain expected. An umbrella might be useful if going outside.")
-    elif category == "Very light":
+    elif category == "Very light rain":
         return ("☔ Very light rain. Minimal precautions needed, but stay aware.")
     else:
         return ("✅ No significant rainfall expected. Enjoy your day!")
 
 def render_warnings():
     # --- Initialize marker_location safely ---
+    st.markdown("### 🚨 Active Warnings")
     if "marker_location" not in st.session_state:
         st.session_state.marker_location = None
 
     if st.session_state.marker_location is None:
-        st.error("📍 Please select a location on the radar map first.")
-        return
-
-    lat, lon = st.session_state.marker_location
+        # st.markdown(
+        #     """ 
+        #     <div style="
+        #       border-radius: 8px; 
+        #       padding: 10px; 
+        #       background-color: #ffe5e5; 
+        #       color: #000000; 
+        #       font-weight: 600; 
+        #     "> 
+        #     📍 Please select a location on the radar map first.
+        #       </div> 
+        #       """, unsafe_allow_html=True)
+        # return
+        lat, lon = 41.151920318603516, -104.8060302734375  # Default radar origin location
+    else:
+        lat, lon = st.session_state.marker_location
 
     # --- Load radar prediction data ---
     if "prediction_data" not in st.session_state or not st.session_state.prediction_data:
@@ -74,7 +87,6 @@ def render_warnings():
         st.session_state.warning_message = "✅ No significant rainfall expected in the next 2 hours."
 
     # --- Display warning ---
-    st.markdown("### 🚨 Active Warnings")
     st.markdown(f"""
     <div class="warning-card" style="border:1px solid #f00; padding:10px; border-radius:8px; background-color:#ffe5e5;">
         <strong>{st.session_state.warning_message}</strong><br>
@@ -98,6 +110,5 @@ def render_warnings():
     <div class="advisory-card" style="border:1px solid #ccc; padding:10px; border-radius:8px; background-color:{card_color};">
         <strong>📢 RAINLOOP Advisory</strong><br>
         {advisory_message}<br>
-        <a href="#" style="color: #fbbf24;">See More</a>
     </div>
     """, unsafe_allow_html=True)
