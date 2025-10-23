@@ -16,3 +16,7 @@ def render_nowcasting():
     else:
         st.error("❌ Could not load RAINLOOP backend data")
         st.session_state["nowcasting_data_loaded"] = False
+
+    if st.button("🔄 Refresh Data", use_container_width=True):
+            st.cache_data.clear()
+            st.rerun()
