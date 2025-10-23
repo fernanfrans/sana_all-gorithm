@@ -9,6 +9,4 @@ def render_sidebar():
         st.markdown("- **Satellite:** Himawari-8/9")
         st.markdown("- **Models:** GFS, ECMWF, JMA")
 
-        if st.button("🔄 Refresh Data"):
-            st.cache_data.clear()
-            st.rerun()
+        

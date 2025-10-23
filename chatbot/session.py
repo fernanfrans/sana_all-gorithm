@@ -1,5 +1,5 @@
 import streamlit as st
-from config.settings import CHAT_MODEL, gen_ai
+from chatbot.bot_setup import CHAT_MODEL, gen_ai
 
 def get_model():
     return gen_ai.GenerativeModel(model_name=CHAT_MODEL)

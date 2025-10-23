@@ -6,7 +6,6 @@ from datetime import datetime, timedelta, timezone
 
 from chatbot.session import get_chat_session, clear_chat_session
 from chatbot.query_time import extract_offset_minutes
-from chatbot.file_selector_supabase import MANILA_TZ
 from chatbot.supabase_ops import (
     latest_complete_run_dir,
     load_manifest,
@@ -18,8 +17,9 @@ from chatbot.location_lookup import rank_locations
 # Absolute path to assistant avatar image (define before set_page_config)
 ASSISTANT_AVATAR = str((Path(__file__).resolve().parent.parent / "assets" / "finalicon.png"))
 
-st.set_page_config(page_title="RainLoop AI Assistant", page_icon=ASSISTANT_AVATAR, layout="wide")
+MANILA_TZ = timezone(timedelta(hours=8))
 
+st.set_page_config(page_title="RainLoop AI Assistant", page_icon=ASSISTANT_AVATAR, layout="wide")
 
 # ---------------- Session helpers ----------------
 
@@ -93,17 +93,17 @@ def run_chatbot():
 
     # Header & controls
     st.markdown("---")
-    col1, col2, col3 = st.columns([13, 1, 1], gap="small")
+    col1, col2, col3 = st.columns([12, 2, 2], gap="small")
     with col1:
         st.markdown("### RainLoop AI Assistant - Ask me...")
         st.caption("Nowcast update every 5-minute steps. Examples: `in 5 mins`, `in 10 mins`.")
     with col2:
-        if st.button("↻ Restart"):
+        if st.button("Restart"):
             st.session_state["messages"] = []
             clear_chat_session()
             st.success("Reset!")
     with col3:
-        if st.button("🧹 Clear"):
+        if st.button("Clear"):
             st.session_state["messages"] = []
             st.success("Clear!")
 
@@ -406,36 +406,12 @@ def run_chatbot():
     if is_stale:
         _status_finish()
         _alert_warning(
-            f"Latest run is {minutes_old:.1f} minutes old. A new update should arrive soon."
+            f"Latest run is {minutes_old:.1f} minutes old. A new update should arrive soon. Please refresh data"
         )
         answer = "No new information available."
         _append_message("assistant", ASSISTANT_AVATAR, answer)
         _render_history()
         return
-
-    # Sidebar diagnostics
-    try:
-        with st.sidebar:
-            st.markdown("### Forecast Debug")
-            st.write(f"**Run ID:** `{run_id}`")
-            st.write(f"**Base (UTC):** {base_time_utc.isoformat()}")
-            st.write(f"**Lead minutes:** {lead_minutes}")
-            st.write(f"**Valid (UTC):** {valid_dt_utc.isoformat()}")
-            st.write(f"**Valid (Manila):** {valid_when_local}")
-            if valid_label:
-                st.write(f"**Valid label:** {valid_label}")
-            st.write(f"**Requested (Manila):** {target_when_local}")
-            st.write(f"**Forecast file:** `{lead_filename}`")
-            st.write(f"**Byte range:** {offset} – {offset + length - 1}")
-            st.write(f"**Location:** {location_entry.get('place')}")
-            st.write(f"**Match score/source:** {score_display}")
-
-            if len(matches) > 1:
-                st.markdown("### Other matches")
-                for score, loc in matches[1:4]:
-                    st.write(f"{score:.2f} — {loc.get('place')}")
-    except Exception:
-        pass  # sidebar should not break main flow
 
     context = (
         f"Run ID: {run_id}\n"
