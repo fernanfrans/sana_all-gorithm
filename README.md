@@ -15,7 +15,7 @@ This project develops an **end-to-end framework for short-term rainfall predicti
 
 - **RainNet-Based Nowcasting Model:** Leveraging radar reflectivity data to predict rainfall intensity in the near term.  
 - **AI-Powered Chatbot:** An OpenAI LLM chatbot interprets model outputs and delivers actionable recommendations to users.  
-- **Interactive Web App:** A Streamlit application visualizes predictions with intuitive charts and alerts, making the system user-friendly and accessible.
+- **Interactive Web App:** A Streamlit application visualizes predictions with intuitive heatmaps and alerts, making the system user-friendly and accessible.
 
 The web app automatically updates rainfall predictions every 10 minutes using the RainNet nowcasting model, while the AI-powered chatbot provides actionable insights based on the latest data.
 
@@ -34,7 +34,9 @@ The framework enables **proactive decision-making** for weather-sensitive activi
   - **Note**: If starting the command with `python3` does not work, use the exact Python version installed (e.g., `python3.12`)
 - Activate the virtual environment with `venv\Scripts\activate` (Windows) or `source venv/bin/activate` (Unix/MacOS)
 - Install the dependencies with `pip install -r requirements.txt`
-- Create `/.streamlit/secrets.toml` (see `.streamlit/secrets.toml.example` for required fields).
+- Create `.env` to store the needed secrets and keys (see `config/.env.example` for reference).
+    - For the purposes of this project submission, the secrets and keys were included in the repository.
+- Create `/.streamlit/secrets.toml` (see `config/.env.example` for reference).
 
 ## Running the Web App
 - In the same directory, start the application with `streamlit run rainloop.py`
