@@ -35,4 +35,6 @@ nexradaws
 
 # Map visualization
 streamlit-folium
-geopandas
+geopandas==1.0.1
+gast==0.6.0
+geographiclib==2.1

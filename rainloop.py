@@ -30,18 +30,27 @@ render_header()
 col1, col2 = st.columns([1, 2])
 
 with col1:
+    render_nowcasting()
     render_warnings()
     render_weather()
-    render_nowcasting()
-
+    
 with col2:
     render_radar()
 
 # Sidebar
 render_sidebar()
 
-# # Chatbot
-# run_chatbot()
+# Chatbot (isolated to avoid rerunning the entire layout on interactions)
+if hasattr(st, "fragment"):
+    @st.fragment
+    def _chatbot_fragment():
+        run_chatbot()
 
+    _chatbot_fragment()
+elif hasattr(st, "experimental_fragment"):
+    _chatbot_fragment = st.experimental_fragment(run_chatbot)
+    _chatbot_fragment()
+else:
+    run_chatbot()
 
 

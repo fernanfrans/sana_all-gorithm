@@ -1,7 +1,4 @@
-import requests
-from model import rainnet
 import base64
-from utils import normalize, denormalize, find_valid_sequences, flatten_sequences, get_reflectivity_data
 import os
 import json
 import math
@@ -15,14 +12,24 @@ from typing import Dict, List, Optional, Tuple
 
 import h5py
 import numpy as np
-from nc2h5 import convert_nc_to_h5
-import h5py
 import tensorflow as tf
 from dotenv import load_dotenv
-from get_data import get_radar_data
-from supabase import create_client, Client
-import streamlit as st
+from supabase import Client, create_client
 
+from get_data import get_radar_data
+from nc2h5 import convert_nc_to_h5
+
+from model import rainnet
+from utils import (
+    normalize,
+    denormalize,
+    find_valid_sequences,
+    flatten_sequences,
+    get_reflectivity_data,
+)
+
+
+MANILA_TZ = timezone(timedelta(hours=8))
 
 
 # ----------------------------
@@ -107,41 +114,24 @@ def predicted_data(input_data, model_path):
     latest_observation = np.asarray(process_data[3])
     return predictions_2hours, completion_dt, latest_observation
 
-
-def ensure_model_exists():
-    MODEL_PATH = "backend/rainnet_FINAL4.weights.h5"
-    MODEL_URL = "https://huggingface.co/frnnfrns/rainnet-model/resolve/main/rainnet_FINAL4.weights.h5"
-
-    if not os.path.exists(MODEL_PATH):
-        print("🧠 Downloading model from Hugging Face...")
-        os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
-        try:
-            response = requests.get(MODEL_URL, stream=True)
-            response.raise_for_status()
-            with open(MODEL_PATH, "wb") as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
-            print("✅ Model downloaded successfully.")
-        except Exception as e:
-            print(f"❌ Failed to download model: {e}")
-            raise
-    else:
-        print("✅ Model already exists locally.")
-    return MODEL_PATH
-
-
-@st.cache_resource
 def load_model(model_path):
     model = rainnet()
     model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=3e-4), loss='log_cosh')
     model.load_weights(model_path)
     return model
 
-def pred_to_json(predictions, metadata, supabase_client, BUCKET_NAME, base_time: datetime):
+def pred_to_json(
+    predictions,
+    metadata,
+    supabase_client,
+    BUCKET_NAME,
+    base_time: datetime,
+):
     """
     Convert predictions to JSON format suitable for raw storage.
     Filenames follow RAW_YYYYMMDD_HHMMSS based on base_time + lead minutes.
     """
+    # load metadata
     
     print(metadata.keys())
     predicted_refl = np.array(predictions)
@@ -334,9 +324,8 @@ def pred_to_chatbot_data(
 ):
     """
     Convert predictions to per-location chatbot JSON files.
-    Filenames follow CHATBOT_YYYYMMDD_HHMMSS using base_time + lead minutes.
+    Filenames follow valid_<YYYYMMDDTHHMMPHT>.jsonl using Manila local time slots.
     """
-    
     locations = locations_path.get("locations", [])
 
     if not locations:
@@ -355,28 +344,32 @@ def pred_to_chatbot_data(
         # Attempt to reshape using prediction spatial dimensions
         latest_obs_arr = latest_obs_arr.reshape(predicted_refl.shape[1], predicted_refl.shape[2])
 
-    base_time = base_time if base_time.tzinfo else base_time.replace(tzinfo=timezone.utc)
-    base_time_utc = base_time.astimezone(timezone.utc)
-    run_id = base_time_utc.strftime("%Y%m%dT%H%MZ")
+    base_time = base_time if base_time.tzinfo else base_time.replace(tzinfo=MANILA_TZ)
+    base_time_local = base_time.astimezone(MANILA_TZ)
+    base_time_utc = base_time_local.astimezone(timezone.utc)
+    run_id = base_time_local.strftime("%Y%m%dT%H%MPHT")
 
     lead_minutes_values: List[int] = [0] + [5 * (idx + 1) for idx in range(predicted_refl.shape[0])]
     slices = [latest_obs_arr] + [predicted_refl[idx] for idx in range(predicted_refl.shape[0])]
 
     lead_files: List[Dict[str, object]] = []
     manifest_files: Dict[str, Dict[str, object]] = {}
+    time_slots: List[Dict[str, object]] = []
 
     for lead_minutes, slice_data in zip(lead_minutes_values, slices):
-        valid_dt = base_time_utc + timedelta(minutes=lead_minutes)
+        valid_dt_local = base_time_local + timedelta(minutes=lead_minutes)
+        valid_dt_utc = valid_dt_local.astimezone(timezone.utc)
         records = _build_records_for_slice(
             slice_data,
             lead_minutes=lead_minutes,
-            valid_dt=valid_dt,
+            valid_dt=valid_dt_utc,
             run_id=run_id,
             locations=prepared_locations,
         )
         file_bytes, offsets = _encode_records_to_jsonl(records)
         compressed_lookup = _compress_offsets(offsets)
-        filename = f"lead_{lead_minutes:03d}.jsonl"
+        ts_tag_local = valid_dt_local.strftime("%Y%m%dT%H%MPHT")
+        filename = f"valid_{ts_tag_local}.jsonl"
         file_hash = hashlib.sha256(file_bytes).hexdigest()
         file_size = len(file_bytes)
 
@@ -395,14 +388,29 @@ def pred_to_chatbot_data(
             "size": file_size,
             "entry_count": len(offsets),
             "hash_lookup": compressed_lookup,
+            "lead_minutes": lead_minutes,
+            "valid_time_local": valid_dt_local.isoformat(),
+            "valid_time_utc": valid_dt_utc.isoformat(),
+            "valid_time_label": ts_tag_local,
         }
+        time_slots.append(
+            {
+                "filename": filename,
+                "lead_minutes": lead_minutes,
+                "valid_time_local": valid_dt_local.isoformat(),
+                "valid_time_utc": valid_dt_utc.isoformat(),
+                "valid_time_label": ts_tag_local,
+            }
+        )
 
     manifest = {
         "run_id": run_id,
-        "base_time": base_time_utc.isoformat(),
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "base_time": base_time_local.isoformat(),
+        "base_time_utc": base_time_utc.isoformat(),
+        "generated_at": datetime.now(MANILA_TZ).isoformat(),
         "lead_bins": lead_minutes_values,
         "files": manifest_files,
+        "time_slots": time_slots,
         "locations": [
             {
                 "place": loc["place"],
@@ -522,44 +530,62 @@ def get_file_from_supabase(supabase_client, BUCKET_NAME, filename):
         print(f"Error downloading metadata from Supabase: {e}")
         return None
 
-def predict_main():
+def ensure_model_exists():
+    MODEL_PATH = "backend/rainnet_FINAL4.weights.h5"
+    MODEL_URL = "https://huggingface.co/frnnfrns/rainnet-model/resolve/main/rainnet_FINAL4.weights.h5"
+
+    if not os.path.exists(MODEL_PATH):
+        print("🧠 Downloading model from Hugging Face...")
+        os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
+        try:
+            response = requests.get(MODEL_URL, stream=True)
+            response.raise_for_status()
+            with open(MODEL_PATH, "wb") as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+            print("✅ Model downloaded successfully.")
+        except Exception as e:
+            print(f"❌ Failed to download model: {e}")
+            raise
+    else:
+        print("✅ Model already exists locally.")
+    return MODEL_PATH
+
+def main():
     # Define paths and initialize Supabase
     supabase_client, bucket_predicted, bucket_nc, bucket_meta = init_supabase()
-    metadata = get_file_from_supabase(supabase_client, bucket_meta, "KCYS_metadata.json")
-    locations = get_file_from_supabase(supabase_client, bucket_meta, "locations.json")
+    metadata_path= get_file_from_supabase(supabase_client, bucket_meta, "KCYS_metadata.json")
+    locations_path = get_file_from_supabase(supabase_client, bucket_meta, "locations.json")
+    supabase_client, bucket_predicted, bucket_nc, bucket_meta  = init_supabase()
     ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     model_path = ensure_model_exists()
-
-    # # Clear existing files in Supabase buckets
+     # Clear existing files in Supabase buckets
     clear_bucket(supabase_client, bucket_predicted)
     # Clear existing NetCDF inputs before downloading new radar data
     clear_bucket(supabase_client, bucket_nc)
     # Get radar data, make predictions, and upload results
-    print("Starting radar data retrieval...")
     get_radar_data(supabase_client, bucket_nc)
-    print("Radar data retrieval completed.")
     input_data = get_data_from_supabase(supabase_client, bucket_nc)
     predictions_2hours, base_time, latest_observation = predicted_data(input_data, model_path)
+    run_timestamp = datetime.now(MANILA_TZ).replace(second=0, microsecond=0)
     pred_to_json(
         predictions_2hours,
-        metadata,
+        metadata_path,
         supabase_client,
         bucket_predicted,
-        base_time,
+        run_timestamp,
     )
     pred_to_chatbot_data(
         predictions_2hours,
         latest_observation,
-        locations,
+        locations_path,
         supabase_client,
         bucket_predicted,
-        base_time,
+        run_timestamp,
     )
-
-    return True
-
+    
 
 if __name__ == "__main__":
-    predict_main()
+    main()
     print("Prediction process completed.")
     
