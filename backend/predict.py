@@ -223,16 +223,18 @@ def _prepare_locations(locations: List[Dict[str, float]]) -> List[Dict[str, obje
 
 def _safe_reflectivity(value) -> Optional[float]:
     """
-    Convert arbitrary input into a rounded float or None.
-    Ensures JSON encoding remains standards-compliant (no NaN).
+    Convert arbitrary input into a finite float or None, mirroring the
+    raw values published in the bulk prediction JSON for consistency.
     """
     try:
         scalar = float(np.asarray(value).item())
     except (ValueError, TypeError):
         return None
-    if math.isnan(scalar):
+
+    if not math.isfinite(scalar):
         return None
-    return round(scalar, 2)
+
+    return scalar
 
 
 def _build_records_for_slice(

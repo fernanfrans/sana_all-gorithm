@@ -125,25 +125,20 @@ def run_chatbot():
         summary = st.session_state.get("forecast_summary")
         if not summary:
             return
-        freshness_icon = "✅" if not summary.get("stale") else "⚠️"
+        freshness_icon = "✅" 
         age_text = summary.get("age_text") or ""
-        if not summary.get("stale"):
-            lines = [
-                summary.get("requested_local", "?"),
-                f"Base: {summary.get('base_time_local','?')}",
-                f"Place: {summary.get('place','?')}",
-                f"Reflectivity: {summary.get('reflectivity','?')} dBZ",
-                f"Rain: {summary.get('rain_category','?')}",
-                f"Match Score: {summary.get('match_score','?')}",
-            ]
-        else:
-            if age_text:
-                lines = [f"Age: {age_text}"]
+        lines = [
+            f"Age: {age_text}",
+            f"Base Time of Last Predictions : {summary.get('base_time_local','?')}",
+            f"Requested Time: {summary.get("requested_local", "?")}",
+            f"Chosen Predicted Time for Query : {summary.get('valid_local','?')}",
+            f"Place: {summary.get('place','?')}",
+            f"Reflectivity: {summary.get('reflectivity','?')} dBZ",
+            f"Rain Category: {summary.get('rain_category','?')}",
+            f"Match Score: {summary.get('match_score','?')}",
+        ]
         message = f"**{freshness_icon} Nowcast Snapshot**\n" + "\n".join(f"- {line}" for line in lines if line)
-        if summary.get("stale"):
-            summary_placeholder.warning(message)
-        else:
-            summary_placeholder.success(message)
+        summary_placeholder.success(message)
 
     def _status_replace(text: str):
         status_placeholder.info(text)
@@ -374,12 +369,7 @@ def run_chatbot():
     latitude = record.get("latitude")
     longitude = record.get("longitude")
     place_name = record.get("place") or location_entry.get("place")
-    try:
-        reflectivity_display = f"{float(reflectivity):.1f}"
-    except (TypeError, ValueError):
-        reflectivity_display = "?"
-        if isinstance(reflectivity, str) and reflectivity.strip():
-            reflectivity_display = reflectivity
+    
 
     base_time_local_str = base_time_local.strftime("%Y-%m-%d %I:%M %p %Z")
     lead_display = f"+{int(lead_minutes)} min"
@@ -392,7 +382,7 @@ def run_chatbot():
         "lead_filename": lead_filename,
         "valid_label": valid_label,
         "place": place_name or "Unknown location",
-        "reflectivity": reflectivity_display,
+        "reflectivity": reflectivity,
         "rain_category": rain_category,
         "match_score": score_display,
         "stale": is_stale,
@@ -402,16 +392,6 @@ def run_chatbot():
     st.session_state["forecast_summary"] = summary_data
     _render_history()
     
-    # If the latest run is stale, finish spinner, show warning, and respond.
-    if is_stale:
-        _status_finish()
-        _alert_warning(
-            f"Latest run is {minutes_old:.1f} minutes old. A new update should arrive soon. Please refresh data"
-        )
-        answer = "No new information available."
-        _append_message("assistant", ASSISTANT_AVATAR, answer)
-        _render_history()
-        return
 
     context = (
         f"Run ID: {run_id}\n"
