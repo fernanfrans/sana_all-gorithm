@@ -72,11 +72,12 @@ def render_warnings():
         st.session_state.prediction_data = generate_radar_data()
 
     # --- Get reflectivity at marker location ---
-    refl_5min = get_reflectivity_at(lat, lon, st.session_state.prediction_data["+5min"])
-    refl_120min = get_reflectivity_at(lat, lon, st.session_state.prediction_data["+120min"])
+    total = 0
+    for radar_data in st.session_state.prediction_data.values():
+        total += get_reflectivity_at(lat, lon, radar_data)
 
-    # --- Compute change over last 2 hours ---
-    last_2_hours = refl_120min - refl_5min
+    # --- Compute average change over last 2 hours ---
+    last_2_hours = total/len(st.session_state.prediction_data)
 
     # --- Categorize rainfall ---
     if last_2_hours > 0:
