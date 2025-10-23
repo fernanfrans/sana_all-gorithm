@@ -558,7 +558,7 @@ def main():
     locations_path = get_file_from_supabase(supabase_client, bucket_meta, "locations.json")
     supabase_client, bucket_predicted, bucket_nc, bucket_meta  = init_supabase()
     ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    model_path = ensure_model_exists()
+    model_path = "backend/rainnet_FINAL4.weights.h5"
      # Clear existing files in Supabase buckets
     clear_bucket(supabase_client, bucket_predicted)
     # Clear existing NetCDF inputs before downloading new radar data
