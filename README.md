@@ -34,8 +34,7 @@ The framework enables **proactive decision-making** for weather-sensitive activi
   - **Note**: If starting the command with `python3` does not work, use the exact Python version installed (e.g., `python3.12`)
 - Activate the virtual environment with `venv\Scripts\activate` (Windows) or `source venv/bin/activate` (Unix/MacOS)
 - Install the dependencies with `pip install -r requirements.txt`
-- Create `.env` to store the needed secrets and keys (see `config/.env.example` for reference).
-    - For the purposes of this project submission, the secrets and keys were included in the repository.
+- Create `.env` to store the needed secrets and keys.
 - Create `/.streamlit/secrets.toml` (see `config/.env.example` for reference).
 
 ## Running the Web App
